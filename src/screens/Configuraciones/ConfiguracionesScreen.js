@@ -37,7 +37,7 @@ export default function ConfiguracionesScreen() {
       Alert.alert('Error', 'La función logout no está disponible');
       return;
     }
-    
+
     Alert.alert(
       'Cerrar Sesión',
       '¿Estás seguro que deseas cerrar sesión?',
@@ -84,10 +84,17 @@ export default function ConfiguracionesScreen() {
         {/* Opciones de Configuración */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Opciones</Text>
-          
+
           <TouchableOpacity style={styles.optionButton}>
             <MaterialIcons name="person" size={24} color="#10b981" />
             <Text style={styles.optionText}>Editar Perfil</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#64748b" />
+          </TouchableOpacity>
+
+          {/* Boton de objetivos */}
+          <TouchableOpacity style={styles.optionButton}>
+            <MaterialIcons name="flag" size={24} color="#10b981" />
+            <Text style={styles.optionText}>Objetivos de Salud</Text>
             <MaterialIcons name="chevron-right" size={24} color="#64748b" />
           </TouchableOpacity>
 
