@@ -5,6 +5,9 @@ import { AuthContext } from '../context/AuthContext';
 
 import HomeScreen from '../screens/Dashboard/HomeScreen';
 import LoginScreen from '../screens/Auth/LoginScreen';
+import HealthGoalsScreen from '../screens/Progress/HealthGoalsScreen';
+import RemindersScreen from '../screens/Progress/RemindersScreen';
+import ProgressScreen from '../screens/Progress/ProgressScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -17,7 +20,7 @@ export default function AppNavigation() {
         {user ? (
           <Stack.Screen name="Home" component={HomeScreen} />
         ) : (
-          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Objetivo" component={RemindersScreen} />
         )}
       </Stack.Navigator>
     </NavigationContainer>
