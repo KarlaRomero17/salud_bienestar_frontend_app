@@ -9,7 +9,7 @@ import {
   ScrollView,
   Alert
 } from 'react-native';
-import FirebaseNative from '../../../src/firebaseNative';
+import firebaseAuth from '../../../src/firebaseAuth';
 
 export default function RegisterScreen({ navigation }) {
   const [nombre, setNombre] = useState('');
@@ -39,7 +39,12 @@ export default function RegisterScreen({ navigation }) {
     };
 
     try {
-      const res = await FirebaseNative.createUserWithEmailAndProfile(email, password, profile);
+      const res = await firebaseAuth.signUpWithEmail(email, password, profile);
+      if (res && res.success === false) {
+        const message = res.error?.message || 'No se pudo crear la cuenta';
+        Alert.alert('Error', message);
+        return;
+      }
       Alert.alert('Cuenta creada', 'Tu cuenta fue creada correctamente');
       navigation.navigate('Login');
     } catch (error) {
