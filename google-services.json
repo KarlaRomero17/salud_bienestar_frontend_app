@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "674168458233",
+    "firebase_url": "https://appsaludybienestar-b7b70-default-rtdb.firebaseio.com",
+    "project_id": "appsaludybienestar-b7b70",
+    "storage_bucket": "appsaludybienestar-b7b70.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:674168458233:android:ac5d75b08ee90f8b9ccb28",
+        "android_client_info": {
+          "package_name": "com.karlaromero17.saludbienestarapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAfHxtITc6jtUKAl1glpzzPFqAT_h4vxK8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

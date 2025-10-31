@@ -5,6 +5,7 @@ import { AuthContext } from '../context/AuthContext';
 
 import HomeScreen from '../screens/Dashboard/HomeScreen';
 import LoginScreen from '../screens/Auth/LoginScreen';
+import RegisterScreen from '../screens/Auth/RegisterScreen';
 //Importando screens relacionadas a Actividad Fisica
 import TipoActividadScreen from '../screens/ActividadFisica/TipoActividadScreen';
 import FuenteInformacionScreen from '../screens/ActividadFisica/FuenteInformacionScreen';
@@ -21,7 +22,10 @@ export default function AppNavigation() {
         {user ? (
           <Stack.Screen name="Home" component={HomeScreen} />
         ) : (
-          <Stack.Screen name="Login" component={ActividadFisicaScreen} />
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>

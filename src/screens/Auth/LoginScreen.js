@@ -13,7 +13,7 @@ import {
   Alert
 } from 'react-native';
 
-export default function LoginScreen() {
+export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -114,7 +114,7 @@ export default function LoginScreen() {
             </View>
 
             {/* Botón de Registro */}
-            <TouchableOpacity style={styles.registerButton}>
+            <TouchableOpacity style={styles.registerButton} onPress={() => navigation.navigate('Register')}>
               <Text style={styles.registerButtonText}>
                 ¿No tienes cuenta? Regístrate
               </Text>
