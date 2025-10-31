@@ -35,13 +35,20 @@ export const AuthProvider = ({ children }) => {
       }
       
       // fallback: try backend auth (if firebaseAuth didn't return expected format)
-      const apiRes = await authService.login(email, password);
-      const userData = apiRes.user || null;
-      setUser(userData);
-      if (userData) {
-        await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+      try {
+        const apiRes = await authService.login(email, password);
+        const userData = apiRes.user || null;
+        if (userData) {
+          setUser(userData);
+          await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+          return { success: true };
+        }
+        // backend didn't return a user -> treat as authentication failure
+        return { success: false, error: new Error('Credenciales incorrectas') };
+      } catch (apiErr) {
+        // backend call failed -> return the error
+        return { success: false, error: apiErr };
       }
-      return { success: true };
     } catch (error) {
       console.warn('AuthContext login error', error);
       return { success: false, error };
