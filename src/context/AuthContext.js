@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect } from 'react';
 import authService from '../services/authService';
+import firebaseAuth from '../firebaseAuth';
 
 export const AuthContext = createContext();
 
@@ -8,8 +9,21 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const login = async (email, password) => {
-    const res = await authService.login(email, password);
-    setUser(res.user);
+    try {
+      // prefer firebaseAuth (works for web and native); fallback to authService if present
+      const res = await firebaseAuth.signInWithEmail(email, password);
+      if (res && res.success) {
+        setUser(res.user);
+        return { success: true };
+      }
+      // fallback: try backend auth
+      const apiRes = await authService.login(email, password);
+      setUser(apiRes.user || null);
+      return { success: true };
+    } catch (error) {
+      console.warn('AuthContext login error', error);
+      return { success: false, error };
+    }
   };
 
   const logout = () => setUser(null);
