@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 export default function LoginScreen({ navigation }) {
+  const { login } = useContext(require('../../context/AuthContext').AuthContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -23,8 +24,21 @@ export default function LoginScreen({ navigation }) {
       Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
-    // Aquí iría la lógica de autenticación
-    Alert.alert('Éxito', 'Inicio de sesión exitoso');
+
+    (async () => {
+      try {
+        const res = await login(email, password);
+        if (res && res.success) {
+          Alert.alert('Éxito', 'Inicio de sesión exitoso');
+        } else {
+          const message = res?.error?.message || 'No se pudo iniciar sesión';
+          Alert.alert('Error', message);
+        }
+      } catch (e) {
+        console.warn('login error', e);
+        Alert.alert('Error', e.message || 'No se pudo iniciar sesión');
+      }
+    })();
   };
 
   const handleForgotPassword = () => {
