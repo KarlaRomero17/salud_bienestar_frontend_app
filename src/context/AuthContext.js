@@ -1,8 +1,11 @@
 import React, { createContext, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import authService from '../services/authService';
 import firebaseAuth from '../firebaseAuth';
 
 export const AuthContext = createContext();
+
+const USER_STORAGE_KEY = '@user_session';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -12,13 +15,32 @@ export const AuthProvider = ({ children }) => {
     try {
       // prefer firebaseAuth (works for web and native); fallback to authService if present
       const res = await firebaseAuth.signInWithEmail(email, password);
+      
+      // Check if login failed (web returns {success: false, error})
+      if (res && res.success === false) {
+        return { success: false, error: res.error };
+      }
+      
+      // Login successful
       if (res && res.success) {
-        setUser(res.user);
+        const userData = {
+          uid: res.user?.uid,
+          email: res.user?.email,
+          token: res.token
+        };
+        setUser(userData);
+        // Guardar sesión en AsyncStorage
+        await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
         return { success: true };
       }
-      // fallback: try backend auth
+      
+      // fallback: try backend auth (if firebaseAuth didn't return expected format)
       const apiRes = await authService.login(email, password);
-      setUser(apiRes.user || null);
+      const userData = apiRes.user || null;
+      setUser(userData);
+      if (userData) {
+        await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+      }
       return { success: true };
     } catch (error) {
       console.warn('AuthContext login error', error);
@@ -26,11 +48,26 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => setUser(null);
+  const logout = async () => {
+    setUser(null);
+    await AsyncStorage.removeItem(USER_STORAGE_KEY);
+  };
 
   useEffect(() => {
-    // Aquí podrías cargar el usuario guardado en AsyncStorage
-    setLoading(false);
+    // Restaurar sesión desde AsyncStorage
+    const loadSession = async () => {
+      try {
+        const storedUser = await AsyncStorage.getItem(USER_STORAGE_KEY);
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+        }
+      } catch (error) {
+        console.warn('Error loading session', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadSession();
   }, []);
 
   return (

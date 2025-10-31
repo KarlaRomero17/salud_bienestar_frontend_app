@@ -10,14 +10,18 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
+import { AuthContext } from '../../context/AuthContext';
+import { getFirebaseErrorMessage } from '../../utils/firebaseErrors';
 
 export default function LoginScreen({ navigation }) {
-  const { login } = useContext(require('../../context/AuthContext').AuthContext);
+  const { login } = useContext(AuthContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = () => {
     if (!email || !password) {
@@ -25,18 +29,22 @@ export default function LoginScreen({ navigation }) {
       return;
     }
 
+    setIsLoading(true);
     (async () => {
       try {
         const res = await login(email, password);
         if (res && res.success) {
           Alert.alert('Éxito', 'Inicio de sesión exitoso');
         } else {
-          const message = res?.error?.message || 'No se pudo iniciar sesión';
+          const message = getFirebaseErrorMessage(res?.error);
           Alert.alert('Error', message);
         }
       } catch (e) {
         console.warn('login error', e);
-        Alert.alert('Error', e.message || 'No se pudo iniciar sesión');
+        const message = getFirebaseErrorMessage(e);
+        Alert.alert('Error', message);
+      } finally {
+        setIsLoading(false);
       }
     })();
   };
@@ -116,8 +124,16 @@ export default function LoginScreen({ navigation }) {
             </TouchableOpacity>
 
             {/* Botón de Login */}
-            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-              <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
+            <TouchableOpacity 
+              style={[styles.loginButton, isLoading && styles.disabledButton]} 
+              onPress={handleLogin}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
+              )}
             </TouchableOpacity>
 
             {/* Separador */}
@@ -298,6 +314,9 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
   separator: {
     flexDirection: 'row',
