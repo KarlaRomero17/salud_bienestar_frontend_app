@@ -10,6 +10,8 @@ import {
   Alert
 } from 'react-native';
 import firebaseAuth from '../../../src/firebaseAuth';
+import { getFirebaseErrorMessage } from '../../utils/firebaseErrors';
+import { ActivityIndicator } from 'react-native';
 
 export default function RegisterScreen({ navigation }) {
   const [nombre, setNombre] = useState('');
@@ -21,6 +23,7 @@ export default function RegisterScreen({ navigation }) {
   const [edad, setEdad] = useState('');
   const [sexo, setSexo] = useState('Masculino');
   const [idRol, setIdRol] = useState('0');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = async () => {
     if (!nombre || !apellido || !email || !password) {
@@ -38,17 +41,21 @@ export default function RegisterScreen({ navigation }) {
       idRol: Number(idRol)
     };
 
+    setIsLoading(true);
     try {
       const res = await firebaseAuth.signUpWithEmail(email, password, profile);
       if (res && res.success === false) {
-        const message = res.error?.message || 'No se pudo crear la cuenta';
+        const message = getFirebaseErrorMessage(res.error);
         Alert.alert('Error', message);
         return;
       }
       Alert.alert('Cuenta creada', 'Tu cuenta fue creada correctamente');
       navigation.navigate('Login');
     } catch (error) {
-      Alert.alert('Error', error.message || 'No se pudo crear la cuenta');
+      const message = getFirebaseErrorMessage(error);
+      Alert.alert('Error', message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -84,8 +91,8 @@ export default function RegisterScreen({ navigation }) {
         <Text style={styles.label}>idRol</Text>
         <TextInput style={styles.input} value={idRol} onChangeText={setIdRol} keyboardType="numeric" />
 
-        <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
-          <Text style={styles.registerButtonText}>Registrarse</Text>
+        <TouchableOpacity style={[styles.registerButton, isLoading && styles.disabledButton]} onPress={handleRegister} disabled={isLoading}>
+          {isLoading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.registerButtonText}>Registrarse</Text>}
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Login')}>
@@ -104,6 +111,7 @@ const styles = StyleSheet.create({
   input: { backgroundColor: '#fff', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: '#e2e8f0' },
   registerButton: { backgroundColor: '#10b981', padding: 14, borderRadius: 8, marginTop: 18, alignItems: 'center' },
   registerButtonText: { color: '#fff', fontWeight: '600' },
+  disabledButton: { opacity: 0.6 },
   backButton: { marginTop: 12, alignItems: 'center' },
   backButtonText: { color: '#10b981', fontWeight: '600' }
 });
