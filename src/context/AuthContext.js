@@ -10,8 +10,9 @@ const USER_STORAGE_KEY = '@user_session';
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isNewUser, setIsNewUser] = useState(false);
 
-  const login = async (email, password) => {
+  const login = async (email, password, fromRegistration = false) => {
     try {
       // prefer firebaseAuth (works for web and native); fallback to authService if present
       const res = await firebaseAuth.signInWithEmail(email, password);
@@ -29,6 +30,7 @@ export const AuthProvider = ({ children }) => {
           token: res.token
         };
         setUser(userData);
+        setIsNewUser(fromRegistration); // Marcar si viene del registro
         // Guardar sesión en AsyncStorage
         await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
         return { success: true };
@@ -65,6 +67,7 @@ export const AuthProvider = ({ children }) => {
     
     // Luego limpiamos el estado local (inmediato)
     setUser(null);
+    setIsNewUser(false);
     
     // Finalmente limpiamos AsyncStorage (async)
     try {
@@ -92,7 +95,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, isNewUser, setIsNewUser }}>
       {children}
     </AuthContext.Provider>
   );

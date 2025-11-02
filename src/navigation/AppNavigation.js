@@ -17,9 +17,10 @@ import ConfiguracionesScreen from '../screens/Configuraciones/ConfiguracionesScr
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-function MainTabs() {
+function MainTabs({ initialRouteName }) {
   return (
     <Tab.Navigator
+      initialRouteName={initialRouteName}
       screenOptions={{
         tabBarActiveTintColor: '#10b981',
         tabBarInactiveTintColor: '#64748b',
@@ -93,13 +94,15 @@ function MainTabs() {
 }
 
 export default function AppNavigation() {
-  const { user } = useContext(AuthContext);
+  const { user, isNewUser } = useContext(AuthContext);
 
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
-          <Stack.Screen name="MainTabs" component={MainTabs} />
+          <Stack.Screen name="MainTabs">
+            {(props) => <MainTabs {...props} initialRouteName={isNewUser ? 'Configuracion' : 'Home'} />}
+          </Stack.Screen>
         ) : (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />

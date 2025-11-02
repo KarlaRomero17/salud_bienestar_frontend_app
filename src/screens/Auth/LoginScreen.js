@@ -34,7 +34,7 @@ export default function LoginScreen({ navigation }) {
       try {
         const res = await login(email, password);
         if (res && res.success) {
-          Alert.alert('Éxito', 'Inicio de sesión exitoso');
+          // Login exitoso - no mostrar alerta, navegación automática
         } else {
           const message = getFirebaseErrorMessage(res?.error);
           Alert.alert('Error', message);
