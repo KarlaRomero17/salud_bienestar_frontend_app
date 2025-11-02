@@ -56,8 +56,22 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
+    // Primero cerramos sesión en Firebase (web o native)
+    try {
+      await firebaseAuth.signOut();
+    } catch (error) {
+      console.error('Error al cerrar sesión en Firebase:', error);
+    }
+    
+    // Luego limpiamos el estado local (inmediato)
     setUser(null);
-    await AsyncStorage.removeItem(USER_STORAGE_KEY);
+    
+    // Finalmente limpiamos AsyncStorage (async)
+    try {
+      await AsyncStorage.removeItem(USER_STORAGE_KEY);
+    } catch (error) {
+      console.error('Error al limpiar AsyncStorage:', error);
+    }
   };
 
   useEffect(() => {

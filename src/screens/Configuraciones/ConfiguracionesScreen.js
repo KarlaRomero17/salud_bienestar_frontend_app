@@ -15,6 +15,11 @@ export default function ConfiguracionesScreen() {
   const { logout, user } = useContext(AuthContext);
 
   const handleLogout = () => {
+    if (!logout) {
+      Alert.alert('Error', 'La función logout no está disponible');
+      return;
+    }
+    
     Alert.alert(
       'Cerrar Sesión',
       '¿Estás seguro que deseas cerrar sesión?',
@@ -27,7 +32,13 @@ export default function ConfiguracionesScreen() {
           text: 'Cerrar Sesión',
           style: 'destructive',
           onPress: async () => {
-            await logout();
+            try {
+              await logout();
+              // Mostrar confirmación
+              Alert.alert('Sesión cerrada', 'Has cerrado sesión correctamente');
+            } catch (error) {
+              Alert.alert('Error', 'No se pudo cerrar sesión: ' + error.message);
+            }
           },
         },
       ]
