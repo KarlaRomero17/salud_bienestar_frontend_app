@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,25 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
 
 export default function ConfiguracionesScreen() {
-  const { logout, user } = useContext(AuthContext);
+  const { logout, user, isNewUser, setIsNewUser } = useContext(AuthContext);
+
+  // Mostrar alerta solo si es nuevo usuario
+  useEffect(() => {
+    if (isNewUser) {
+      Alert.alert(
+        '¡Bienvenido!',
+        'Para empezar, debes configurar tus Objetivos de Salud',
+        [
+          {
+            text: 'Entendido',
+            onPress: () => {
+              setIsNewUser(false); // Marcar como ya mostrado
+            }
+          }
+        ]
+      );
+    }
+  }, [isNewUser]);
 
   const handleLogout = () => {
     if (!logout) {

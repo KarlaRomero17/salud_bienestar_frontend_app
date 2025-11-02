@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -12,8 +12,10 @@ import {
 import firebaseAuth from '../../../src/firebaseAuth';
 import { getFirebaseErrorMessage } from '../../utils/firebaseErrors';
 import { ActivityIndicator } from 'react-native';
+import { AuthContext } from '../../context/AuthContext';
 
 export default function RegisterScreen({ navigation }) {
+  const { login } = useContext(AuthContext);
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
   const [email, setEmail] = useState('');
@@ -43,14 +45,31 @@ export default function RegisterScreen({ navigation }) {
 
     setIsLoading(true);
     try {
+      // Primero registrar el usuario
       const res = await firebaseAuth.signUpWithEmail(email, password, profile);
       if (res && res.success === false) {
         const message = getFirebaseErrorMessage(res.error);
         Alert.alert('Error', message);
         return;
       }
-      Alert.alert('Cuenta creada', 'Tu cuenta fue creada correctamente');
-      navigation.navigate('Login');
+      
+      // Registro exitoso - ahora iniciar sesión automáticamente
+      const loginRes = await login(email, password, true); // true = fromRegistration
+      if (loginRes && loginRes.success) {
+        // Marcar que viene desde registro para mostrar configuración
+        Alert.alert('¡Bienvenido!', 'Tu cuenta fue creada correctamente', [
+          {
+            text: 'Continuar',
+            onPress: () => {
+              // La navegación se manejará automáticamente por el cambio de user
+            }
+          }
+        ]);
+      } else {
+        // Si falla el login automático, volver a login manual
+        Alert.alert('Cuenta creada', 'Tu cuenta fue creada. Por favor inicia sesión.');
+        navigation.navigate('Login');
+      }
     } catch (error) {
       const message = getFirebaseErrorMessage(error);
       Alert.alert('Error', message);
