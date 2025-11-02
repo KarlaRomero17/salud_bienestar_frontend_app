@@ -8,11 +8,11 @@ import { AuthContext } from '../context/AuthContext';
 import HomeScreen from '../screens/Dashboard/HomeScreen';
 import LoginScreen from '../screens/Auth/LoginScreen';
 import RegisterScreen from '../screens/Auth/RegisterScreen';
-import LogoutScreen from '../screens/Auth/LogoutScreen';
-//Importando screens relacionadas a Actividad Fisica
-import TipoActividadScreen from '../screens/ActividadFisica/TipoActividadScreen';
-import FuenteInformacionScreen from '../screens/ActividadFisica/FuenteInformacionScreen';
+//Importando screens para el Tab Navigator
 import ActividadFisicaScreen from '../screens/ActividadFisica/ActividadFisicaScreen';
+import PlanesDeComidaScreen from '../screens/PlanesDeComida/PlanesDeComidaScreen';
+import ForosScreen from '../screens/Foros/ForosScreen';
+import ConfiguracionesScreen from '../screens/Configuraciones/ConfiguracionesScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -49,42 +49,42 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
-        name="ActividadFisica"
+        name="Entrenamientos"
         component={ActividadFisicaScreen}
         options={{
-          tabBarLabel: 'Actividad',
+          tabBarLabel: 'Entrenamientos',
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="fitness-center" color={color} size={size} />
           ),
         }}
       />
       <Tab.Screen
-        name="TipoActividad"
-        component={TipoActividadScreen}
+        name="Planes de Comida"
+        component={PlanesDeComidaScreen}
         options={{
-          tabBarLabel: 'Tipos',
+          tabBarLabel: 'Planes de Comida',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="list" color={color} size={size} />
+            <MaterialIcons name="restaurant-menu" color={color} size={size} />
           ),
         }}
       />
       <Tab.Screen
-        name="FuenteInformacion"
-        component={FuenteInformacionScreen}
+        name="Foros"
+        component={ForosScreen}
         options={{
-          tabBarLabel: 'Información',
+          tabBarLabel: 'Foros',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="info" color={color} size={size} />
+            <MaterialIcons name="forum" color={color} size={size} />
           ),
         }}
       />
       <Tab.Screen
-        name="Logout"
-        component={LogoutScreen}
+        name="Configuracion"
+        component={ConfiguracionesScreen}
         options={{
-          tabBarLabel: 'Cerrar Sesión',
+          tabBarLabel: 'Configuración',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="logout" color={color} size={size} />
+            <MaterialIcons name="settings" color={color} size={size} />
           ),
         }}
       />
