@@ -1,5 +1,4 @@
-// RemindersScreen.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,72 +8,212 @@ import {
   Modal,
   Switch,
   FlatList,
+  Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Layout from '../../components/Layout';
+import { recordatoriosService } from '../../services/recordatoriosService';
 
 const RemindersScreen = () => {
-  const [reminders, setReminders] = useState([
-    {
-      id: '1',
-      name: 'Vitamina D',
-      dosage: '1 cápsula',
-      time: '08:00',
-      days: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'],
-      active: true,
-    },
-    {
-      id: '2',
-      name: 'Omega 3',
-      dosage: '2 cápsulas',
-      time: '20:00',
-      days: ['Lun', 'Mié', 'Vie'],
-      active: true,
-    },
-  ]);
-
+  const [reminders, setReminders] = useState([]);
+  const [todayReminders, setTodayReminders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [saving, setSaving] = useState(false);
+  
   const [newReminder, setNewReminder] = useState({
-    name: '',
-    dosage: '',
-    time: '08:00',
-    days: [],
-    active: true,
+    nombre: '',
+    dosis: '',
+    hora: '08:00',
+    dias: [],
+    activo: true,
+    userId: '-OdER-8T0_WKhxrfi5HY', // Tu userId temporal
   });
 
   const daysOfWeek = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
-  const toggleDay = (day) => {
-    const updatedDays = newReminder.days.includes(day)
-      ? newReminder.days.filter(d => d !== day)
-      : [...newReminder.days, day];
-    setNewReminder({ ...newReminder, days: updatedDays });
-  };
-
-  const addReminder = () => {
-    if (newReminder.name && newReminder.dosage && newReminder.days.length > 0) {
-      const reminder = {
-        id: Date.now().toString(),
-        ...newReminder,
-      };
-      setReminders([...reminders, reminder]);
-      setNewReminder({
-        name: '',
-        dosage: '',
-        time: '08:00',
-        days: [],
-        active: true,
-      });
-      setModalVisible(false);
+  // Cargar recordatorios
+  const cargarRecordatorios = async () => {
+    try {
+      setLoading(true);
+      const resultado = await recordatoriosService.obtenerTodos();
+      
+      if (resultado.exito) {
+        setReminders(resultado.datos);
+        
+        // Filtrar recordatorios de hoy
+        const hoy = getToday();
+        const recordatoriosHoy = resultado.datos.filter(reminder => 
+          reminder.active && reminder.days.includes(hoy)
+        );
+        setTodayReminders(recordatoriosHoy);
+      } else {
+        Alert.alert('Error', resultado.mensaje || 'Error al cargar recordatorios');
+      }
+    } catch (error) {
+      console.error('Error cargando recordatorios:', error);
+      Alert.alert('Error', 'No se pudieron cargar los recordatorios');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const toggleReminder = (id) => {
-    setReminders(reminders.map(reminder =>
-      reminder.id === id
-        ? { ...reminder, active: !reminder.active }
-        : reminder
-    ));
+  // Pull to refresh
+  const onRefresh = () => {
+    setRefreshing(true);
+    cargarRecordatorios();
+  };
+
+  // Cargar al montar el componente
+  useEffect(() => {
+    cargarRecordatorios();
+  }, []);
+
+  const toggleDay = (day) => {
+    const updatedDays = newReminder.dias.includes(day)
+      ? newReminder.dias.filter(d => d !== day)
+      : [...newReminder.dias, day];
+    setNewReminder({ ...newReminder, dias: updatedDays });
+  };
+
+  const addReminder = async () => {
+    if (!newReminder.nombre || !newReminder.dosis || newReminder.dias.length === 0) {
+      Alert.alert('Error', 'Por favor completa todos los campos obligatorios');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const resultado = await recordatoriosService.crear(newReminder);
+      
+      if (resultado.exito) {
+        setReminders(prev => [...prev, resultado.datos]);
+        
+        // Actualizar recordatorios de hoy si corresponde
+        const hoy = getToday();
+        if (resultado.datos.active && resultado.datos.days.includes(hoy)) {
+          setTodayReminders(prev => [...prev, resultado.datos]);
+        }
+        
+        setNewReminder({
+          nombre: '',
+          dosis: '',
+          hora: '08:00',
+          dias: [],
+          activo: true,
+          userId: '-OdER-8T0_WKhxrfi5HY',
+        });
+        setModalVisible(false);
+        Alert.alert('Éxito', 'Recordatorio creado correctamente');
+      } else {
+        Alert.alert('Error', resultado.mensaje || 'Error al crear recordatorio');
+      }
+    } catch (error) {
+      console.error('Error creando recordatorio:', error);
+      Alert.alert('Error', 'No se pudo crear el recordatorio');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleReminder = async (id, currentActive) => {
+    try {
+      const resultado = await recordatoriosService.alternarEstado(id);
+      
+      if (resultado.exito) {
+        // Actualizar estado local
+        setReminders(prev => 
+          prev.map(reminder =>
+            reminder._id === id ? resultado.datos : reminder
+          )
+        );
+        
+        // Actualizar recordatorios de hoy
+        const hoy = getToday();
+        if (resultado.datos.days.includes(hoy)) {
+          if (resultado.datos.active) {
+            setTodayReminders(prev => [...prev, resultado.datos]);
+          } else {
+            setTodayReminders(prev => prev.filter(r => r._id !== id));
+          }
+        } else if (!resultado.datos.active) {
+          setTodayReminders(prev => prev.filter(r => r._id !== id));
+        }
+      } else {
+        Alert.alert('Error', resultado.mensaje || 'Error al cambiar estado');
+      }
+    } catch (error) {
+      console.error('Error cambiando estado:', error);
+      Alert.alert('Error', 'No se pudo cambiar el estado');
+    }
+  };
+
+  const deleteReminder = async (id, name) => {
+    Alert.alert(
+      'Eliminar Recordatorio',
+      `¿Estás seguro de que quieres eliminar "${name}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const resultado = await recordatoriosService.eliminar(id);
+              
+              if (resultado.exito) {
+                setReminders(prev => prev.filter(reminder => reminder._id !== id));
+                setTodayReminders(prev => prev.filter(reminder => reminder._id !== id));
+                Alert.alert('Éxito', 'Recordatorio eliminado correctamente');
+              } else {
+                Alert.alert('Error', resultado.mensaje || 'Error al eliminar');
+              }
+            } catch (error) {
+              console.error('Error eliminando recordatorio:', error);
+              Alert.alert('Error', 'No se pudo eliminar el recordatorio');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const markAsTaken = async (id, name) => {
+    Alert.alert(
+      'Marcar como Tomado',
+      `¿Marcar "${name}" como tomado?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Sí, tomado',
+          onPress: async () => {
+            try {
+              const resultado = await recordatoriosService.marcarTomado(id);
+              
+              if (resultado.exito) {
+                // Actualizar el recordatorio en la lista
+                setReminders(prev => 
+                  prev.map(reminder =>
+                    reminder._id === id ? resultado.datos : reminder
+                  )
+                );
+                
+                Alert.alert('Éxito', 'Medicamento marcado como tomado');
+              } else {
+                Alert.alert('Error', resultado.mensaje || 'Error al marcar como tomado');
+              }
+            } catch (error) {
+              console.error('Error marcando como tomado:', error);
+              Alert.alert('Error', 'No se pudo marcar como tomado');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const renderReminderItem = ({ item }) => (
@@ -108,20 +247,44 @@ const RemindersScreen = () => {
           </Text>
           <Switch
             value={item.active}
-            onValueChange={() => toggleReminder(item.id)}
+            onValueChange={() => toggleReminder(item._id, item.active)}
             trackColor={{ false: '#767577', true: '#9bfab0' }}
             thumbColor={item.active ? '#2a8c4a' : '#f4f3f4'}
           />
         </View>
-        <TouchableOpacity style={styles.actionButton}>
-          <Text style={styles.actionText}>Tomar ahora</Text>
-        </TouchableOpacity>
+        
+        <View style={styles.actionButtons}>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.takenButton]}
+            onPress={() => markAsTaken(item._id, item.name)}>
+            <Text style={styles.actionText}>✅</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.deleteButton]}
+            onPress={() => deleteReminder(item._id, item.name)}>
+            <Text style={styles.actionText}>🗑️</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 
-  const todayReminders = reminders.filter(reminder => 
-    reminder.active && reminder.days.includes(getToday())
+  const renderTodayReminder = (item) => (
+    <View key={item._id} style={styles.todayReminder}>
+      <View style={styles.todayReminderInfo}>
+        <Text style={styles.todayReminderName}>{item.name}</Text>
+        <Text style={styles.todayReminderDosage}>{item.dosage}</Text>
+      </View>
+      <View style={styles.todayActions}>
+        <Text style={styles.todayReminderTime}>{item.time}</Text>
+        <TouchableOpacity 
+          style={styles.todayActionButton}
+          onPress={() => markAsTaken(item._id, item.name)}>
+          <Text style={styles.todayActionText}>Tomar</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 
   function getToday() {
@@ -129,21 +292,24 @@ const RemindersScreen = () => {
     return days[new Date().getDay()];
   }
 
+  if (loading && !refreshing) {
+    return (
+      <Layout title="Mis Recordatorios">
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2a8c4a" />
+          <Text style={styles.loadingText}>Cargando recordatorios...</Text>
+        </View>
+      </Layout>
+    );
+  }
+
   return (
     <Layout title="Mis Recordatorios">
       {/* Recordatorios de hoy */}
       <View style={styles.todaySection}>
-        <Text style={styles.sectionTitle}>Recordatorios de Hoy</Text>
+        <Text style={styles.sectionTitle}>📅 Recordatorios de Hoy</Text>
         {todayReminders.length > 0 ? (
-          todayReminders.map(reminder => (
-            <View key={reminder.id} style={styles.todayReminder}>
-              <View style={styles.todayReminderInfo}>
-                <Text style={styles.todayReminderName}>{reminder.name}</Text>
-                <Text style={styles.todayReminderDosage}>{reminder.dosage}</Text>
-              </View>
-              <Text style={styles.todayReminderTime}>{reminder.time}</Text>
-            </View>
-          ))
+          todayReminders.map(renderTodayReminder)
         ) : (
           <Text style={styles.noRemindersText}>No hay recordatorios para hoy</Text>
         )}
@@ -153,10 +319,17 @@ const RemindersScreen = () => {
       <FlatList
         data={reminders}
         renderItem={renderReminderItem}
-        keyExtractor={item => item.id}
+        keyExtractor={item => item._id}
         contentContainerStyle={styles.listContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#2a8c4a']}
+          />
+        }
         ListHeaderComponent={
-          <Text style={styles.sectionTitle}>Todos los Recordatorios</Text>
+          <Text style={styles.sectionTitle}>💊 Todos los Recordatorios</Text>
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
@@ -170,12 +343,14 @@ const RemindersScreen = () => {
         }
       />
 
+      {/* Botón flotante para agregar */}
       <TouchableOpacity
         style={styles.addButton}
         onPress={() => setModalVisible(true)}>
         <Icon name="add" size={30} color="#ffffff" />
       </TouchableOpacity>
 
+      {/* Modal para agregar recordatorio */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -188,23 +363,23 @@ const RemindersScreen = () => {
             <TextInput
               style={styles.input}
               placeholder="Nombre del medicamento/suplemento"
-              value={newReminder.name}
-              onChangeText={text => setNewReminder({ ...newReminder, name: text })}
+              value={newReminder.nombre}
+              onChangeText={text => setNewReminder({ ...newReminder, nombre: text })}
             />
 
             <TextInput
               style={styles.input}
               placeholder="Dosificación (ej: 1 cápsula, 2 tabletas)"
-              value={newReminder.dosage}
-              onChangeText={text => setNewReminder({ ...newReminder, dosage: text })}
+              value={newReminder.dosis}
+              onChangeText={text => setNewReminder({ ...newReminder, dosis: text })}
             />
 
             <Text style={styles.inputLabel}>Hora del recordatorio</Text>
             <TextInput
               style={styles.input}
               placeholder="HH:MM"
-              value={newReminder.time}
-              onChangeText={text => setNewReminder({ ...newReminder, time: text })}
+              value={newReminder.hora}
+              onChangeText={text => setNewReminder({ ...newReminder, hora: text })}
             />
 
             <Text style={styles.inputLabel}>Días de la semana</Text>
@@ -214,13 +389,13 @@ const RemindersScreen = () => {
                   key={day}
                   style={[
                     styles.dayButton,
-                    newReminder.days.includes(day) && styles.dayButtonActive,
+                    newReminder.dias.includes(day) && styles.dayButtonActive,
                   ]}
                   onPress={() => toggleDay(day)}>
                   <Text
                     style={[
                       styles.dayButtonText,
-                      newReminder.days.includes(day) && styles.dayButtonTextActive,
+                      newReminder.dias.includes(day) && styles.dayButtonTextActive,
                     ]}>
                     {day}
                   </Text>
@@ -231,13 +406,19 @@ const RemindersScreen = () => {
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setModalVisible(false)}>
+                onPress={() => setModalVisible(false)}
+                disabled={saving}>
                 <Text style={styles.cancelButtonText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
-                onPress={addReminder}>
-                <Text style={styles.saveButtonText}>Guardar</Text>
+                style={[styles.modalButton, styles.saveButton, saving && styles.saveButtonDisabled]}
+                onPress={addReminder}
+                disabled={saving}>
+                {saving ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Guardar</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -494,6 +675,48 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#666',
+  },
+  todayActions: {
+    alignItems: 'flex-end',
+  },
+  todayActionButton: {
+    paddingHorizontal: 15,
+    paddingVertical: 5,
+    backgroundColor: '#64c27b',
+    borderRadius: 15,
+    marginTop: 5,
+  },
+  todayActionText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+  },
+  actionButton: {
+    padding: 8,
+    borderRadius: 20,
+    marginLeft: 10,
+  },
+  takenButton: {
+    backgroundColor: '#27ae60',
+  },
+  deleteButton: {
+    backgroundColor: '#e74c3c',
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+
 });
 
 export default RemindersScreen;
