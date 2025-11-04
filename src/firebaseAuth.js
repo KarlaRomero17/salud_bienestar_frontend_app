@@ -1,14 +1,21 @@
 // Firebase Auth usando Web SDK (compatible con Expo Go)
 import { initializeApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
+import { initializeAuth, getReactNativePersistence, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
 import { getDatabase, ref, push, set } from 'firebase/database';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Importar configuración
 import firebaseConfig from './firebaseWeb';
 
 // Inicializar Firebase
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+
+// Inicializar Auth con persistencia de AsyncStorage
+// Esto permite que Firebase mantenga la sesión incluso después de cerrar la app
+const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage)
+});
+
 const db = getDatabase(app);
 
 const firebaseAuth = {
