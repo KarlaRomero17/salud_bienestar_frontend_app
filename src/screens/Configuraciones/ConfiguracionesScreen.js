@@ -10,10 +10,12 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 
 export default function ConfiguracionesScreen() {
   const { logout, user, isNewUser, setIsNewUser } = useContext(AuthContext);
-
+  const navigation = useNavigation();
+  
   // Mostrar alerta solo si es nuevo usuario
   useEffect(() => {
     if (isNewUser) {
@@ -63,6 +65,11 @@ export default function ConfiguracionesScreen() {
     );
   };
 
+  // Función para navegar a HealthGoalScreen
+  const navigateToHealthGoals = () => {
+    navigation.navigate('HealthGoal');
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -91,10 +98,21 @@ export default function ConfiguracionesScreen() {
             <MaterialIcons name="chevron-right" size={24} color="#64748b" />
           </TouchableOpacity>
 
-          {/* Boton de objetivos */}
-          <TouchableOpacity style={styles.optionButton}>
+          <TouchableOpacity
+            style={styles.optionButton}
+            onPress={navigateToHealthGoals}
+          >
             <MaterialIcons name="flag" size={24} color="#10b981" />
             <Text style={styles.optionText}>Objetivos de Salud</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#64748b" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.optionButton}
+            onPress={() => navigation.navigate('Reminders')}
+          >
+            <MaterialIcons name="alarm" size={24} color="#10b981" />
+            <Text style={styles.optionText}>Recordatorios</Text>
             <MaterialIcons name="chevron-right" size={24} color="#64748b" />
           </TouchableOpacity>
 

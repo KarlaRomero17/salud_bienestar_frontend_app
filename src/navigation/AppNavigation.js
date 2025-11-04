@@ -1,3 +1,4 @@
+// AppNavigation.js - VERSIÓN CORREGIDA
 import React, { useContext } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -13,6 +14,9 @@ import ActividadFisicaScreen from '../screens/ActividadFisica/ActividadFisicaScr
 import PlanesDeComidaScreen from '../screens/PlanesDeComida/PlanesDeComidaScreen';
 import ForosScreen from '../screens/Foros/ForosScreen';
 import ConfiguracionesScreen from '../screens/Configuraciones/ConfiguracionesScreen';
+import HealthGoalsScreen from '../screens/Progress/HealthGoalsScreen';
+import RemindersScreen from '../screens/Progress/RemindersScreen';
+import ProgressScreen from '../screens/Progress/ProgressScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -100,9 +104,37 @@ export default function AppNavigation() {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
-          <Stack.Screen name="MainTabs">
-            {(props) => <MainTabs {...props} initialRouteName={isNewUser ? 'Configuracion' : 'Home'} />}
-          </Stack.Screen>
+          <>
+            <Stack.Screen name="MainTabs">
+              {(props) => <MainTabs {...props} initialRouteName={isNewUser ? 'Configuracion' : 'Home'} />}
+            </Stack.Screen>
+            <Stack.Screen
+              name="HealthGoal"
+              component={HealthGoalsScreen}
+              options={{
+                headerShown: true,
+                title: 'Objetivos de Salud',
+                headerBackTitle: 'Atrás'
+              }}
+            />
+            {/* recordatorios */}
+            <Stack.Screen
+              name="Reminders"
+              component={RemindersScreen}
+              options={{
+                headerShown: true,
+                title: 'Recordatorios',
+                headerBackTitle: 'Atrás'
+              }}
+            />
+            <Stack.Screen name="Progress" component={ProgressScreen}
+              options={{
+                headerShown: true,
+                title: 'Progreso',
+                headerBackTitle: 'Atrás'
+              }} 
+            />
+          </>
         ) : (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
