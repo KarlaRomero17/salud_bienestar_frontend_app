@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import authService from '../services/authService';
 import firebaseAuth from '../firebaseAuth';
+import tokenManager from '../utils/tokenManager';
 
 export const AuthContext = createContext();
 
@@ -31,8 +32,13 @@ export const AuthProvider = ({ children }) => {
         };
         setUser(userData);
         setIsNewUser(fromRegistration); // Marcar si viene del registro
+        
         // Guardar sesión en AsyncStorage
         await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+        
+        // Guardar token usando tokenManager para manejo seguro
+        await tokenManager.getToken(); // Esto guarda el token automáticamente
+        
         return { success: true };
       }
       
@@ -64,6 +70,9 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Error al cerrar sesión en Firebase:', error);
     }
+    
+    // Limpiar token
+    await tokenManager.clearToken();
     
     // Luego limpiamos el estado local (inmediato)
     setUser(null);
