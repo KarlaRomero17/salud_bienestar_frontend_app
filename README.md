@@ -88,7 +88,9 @@ salud_bienestar_frontend_app/
     # o usando yarn
     yarn install
     ```
-4. Inicia la aplicación:
+4. Configura las variables de entorno
+   Copia el archivo de ejemplo .env.local.example, renómbralo a .env.local y edita el valor de la URL para que apunte a la IP de tu máquina donde se está ejecutando el backend (puerto incluido).
+5. Inicia la aplicación:
     ```bash
     npm start
     # o usando yarn
