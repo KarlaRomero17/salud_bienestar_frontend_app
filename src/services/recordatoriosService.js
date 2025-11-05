@@ -1,8 +1,5 @@
 import { SERVER_URI } from '@env';
 
-// Para debug - verifica que la variable se cargue correctamente
-console.log('🔧 SERVER_URI cargada:', SERVER_URI);
-
 // Función helper para hacer fetch con timeout
 const fetchWithTimeout = async (url, options = {}, timeout = 10000) => {
   const controller = new AbortController();
@@ -23,40 +20,31 @@ const fetchWithTimeout = async (url, options = {}, timeout = 10000) => {
 
 export const recordatoriosService = {
   // Obtener todos los recordatorios
-  obtenerTodos: async () => {
+  obtenerTodosConPaginacion: async (queryParams = '') => {
     try {
-      console.log('🔗 Conectando a:', `${SERVER_URI}/api/recordatorios`);
+      console.log('Conectando a:', `${SERVER_URI}/api/recordatorios?${queryParams}`);
       
-      const response = await fetchWithTimeout(`${SERVER_URI}/api/recordatorios`);
+      const response = await fetchWithTimeout(`${SERVER_URI}/api/recordatorios?${queryParams}`);
       
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
       
       const data = await response.json();
-      console.log('✅ Datos recibidos correctamente');
+      console.log('Datos recibidos correctamente');
       return data;
       
     } catch (error) {
-      console.error('❌ Error en obtenerTodos:', error.message);
-      
-      if (error.name === 'AbortError') {
-        throw new Error('Timeout: El servidor no respondió a tiempo');
-      } else if (error.message.includes('Network request failed')) {
-        throw new Error(`No se pudo conectar al servidor: ${SERVER_URI}
-        
-Solución:
-1. Verifica que el servidor esté corriendo
-2. Para Android: usa http://10.0.2.2:5000
-3. Para iOS: usa http://localhost:5000
-4. Para dispositivo físico: usa tu IP local`);
-      } else {
-        throw error;
-      }
+      console.error('Error en obtenerTodosConPaginacion:', error.message);
+      throw error;
     }
   },
 
-  // ... (el resto de tus métodos igual)
+  // Mantén el método original para compatibilidad
+  obtenerTodos: async () => {
+    return await recordatoriosService.obtenerTodosConPaginacion();
+  },
+
   obtenerDeHoy: async () => {
     try {
       const response = await fetchWithTimeout(`${SERVER_URI}/api/recordatorios/hoy/recordatorios`);
@@ -109,4 +97,44 @@ Solución:
       throw error;
     }
   },
+
+  alternarEstado: async (id) => {
+    try {
+      const response = await fetchWithTimeout(`${SERVER_URI}/api/recordatorios/${id}/activar-desactivar`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+      });
+      if (!response.ok) throw new Error(`Error ${response.status}`);
+      return await response.json();
+    } catch (error) {
+      console.error('Error en alternarEstado:', error);
+      throw error;
+    }
+  },
+
+  obtenerPorId: async (id) => {
+    try {
+      const response = await fetchWithTimeout(`${SERVER_URI}/api/recordatorios/${id}`);
+      if (!response.ok) throw new Error(`Error ${response.status}`);
+      return await response.json();
+    } catch (error) {
+      console.error('Error en obtenerPorId:', error);
+      throw error;
+    }
+  },
+  //actualizar
+  actualizar: async (id, datos) => {
+    try {
+      const response = await fetchWithTimeout(`${SERVER_URI}/api/recordatorios/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(datos),
+      });
+      if (!response.ok) throw new Error(`Error ${response.status}`);
+      return await response.json();
+    } catch (error) {
+      console.error('Error en actualizar:', error);
+      throw error;
+    }
+  }
 };

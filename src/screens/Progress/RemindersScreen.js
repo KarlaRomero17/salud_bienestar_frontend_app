@@ -22,7 +22,9 @@ const RemindersScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingReminder, setEditingReminder] = useState(null);
   
   const [newReminder, setNewReminder] = useState({
     nombre: '',
@@ -30,7 +32,7 @@ const RemindersScreen = () => {
     hora: '08:00',
     dias: [],
     activo: true,
-    userId: '-OdER-8T0_WKhxrfi5HY', // Tu userId temporal
+    userId: '-OdER-8T0_WKhxrfi5HY',
   });
 
   const daysOfWeek = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -39,19 +41,21 @@ const RemindersScreen = () => {
   const cargarRecordatorios = async () => {
     try {
       setLoading(true);
-      const resultado = await recordatoriosService.obtenerTodos();
       
-      if (resultado.exito) {
-        setReminders(resultado.datos);
-        
-        // Filtrar recordatorios de hoy
+      const resultadoTodos = await recordatoriosService.obtenerTodos();
+      if (resultadoTodos.exito) {
+        setReminders(resultadoTodos.datos);
+      }
+
+      const resultadoHoy = await recordatoriosService.obtenerDeHoy();
+      if (resultadoHoy.exito) {
+        setTodayReminders(resultadoHoy.datos);
+      } else {
         const hoy = getToday();
-        const recordatoriosHoy = resultado.datos.filter(reminder => 
+        const recordatoriosHoy = resultadoTodos.datos.filter(reminder => 
           reminder.active && reminder.days.includes(hoy)
         );
         setTodayReminders(recordatoriosHoy);
-      } else {
-        Alert.alert('Error', resultado.mensaje || 'Error al cargar recordatorios');
       }
     } catch (error) {
       console.error('Error cargando recordatorios:', error);
@@ -62,13 +66,11 @@ const RemindersScreen = () => {
     }
   };
 
-  // Pull to refresh
   const onRefresh = () => {
     setRefreshing(true);
     cargarRecordatorios();
   };
 
-  // Cargar al montar el componente
   useEffect(() => {
     cargarRecordatorios();
   }, []);
@@ -78,6 +80,42 @@ const RemindersScreen = () => {
       ? newReminder.dias.filter(d => d !== day)
       : [...newReminder.dias, day];
     setNewReminder({ ...newReminder, dias: updatedDays });
+  };
+
+  const toggleEditDay = (day) => {
+    const updatedDays = editingReminder.dias.includes(day)
+      ? editingReminder.dias.filter(d => d !== day)
+      : [...editingReminder.dias, day];
+    setEditingReminder({ ...editingReminder, dias: updatedDays });
+  };
+
+  // Abrir modal de edición
+  const openEditModal = (reminder) => {
+    setEditingReminder({
+      _id: reminder._id,
+      nombre: reminder.name,
+      dosis: reminder.dosage,
+      hora: reminder.time,
+      dias: [...reminder.days],
+      activo: reminder.active,
+      userId: reminder.userId,
+    });
+    setEditModalVisible(true);
+  };
+
+  // Cerrar modales y resetear estados
+  const closeModals = () => {
+    setModalVisible(false);
+    setEditModalVisible(false);
+    setEditingReminder(null);
+    setNewReminder({
+      nombre: '',
+      dosis: '',
+      hora: '08:00',
+      dias: [],
+      activo: true,
+      userId: '-OdER-8T0_WKhxrfi5HY',
+    });
   };
 
   const addReminder = async () => {
@@ -92,25 +130,13 @@ const RemindersScreen = () => {
       
       if (resultado.exito) {
         setReminders(prev => [...prev, resultado.datos]);
-        
-        // Actualizar recordatorios de hoy si corresponde
-        const hoy = getToday();
-        if (resultado.datos.active && resultado.datos.days.includes(hoy)) {
-          setTodayReminders(prev => [...prev, resultado.datos]);
+        const resultadoHoy = await recordatoriosService.obtenerDeHoy();
+        if (resultadoHoy.exito) {
+          setTodayReminders(resultadoHoy.datos);
         }
         
-        setNewReminder({
-          nombre: '',
-          dosis: '',
-          hora: '08:00',
-          dias: [],
-          activo: true,
-          userId: '-OdER-8T0_WKhxrfi5HY',
-        });
-        setModalVisible(false);
+        closeModals();
         Alert.alert('Éxito', 'Recordatorio creado correctamente');
-      } else {
-        Alert.alert('Error', resultado.mensaje || 'Error al crear recordatorio');
       }
     } catch (error) {
       console.error('Error creando recordatorio:', error);
@@ -120,31 +146,58 @@ const RemindersScreen = () => {
     }
   };
 
-  const toggleReminder = async (id, currentActive) => {
+  const updateReminder = async () => {
+    if (!editingReminder.nombre || !editingReminder.dosis || editingReminder.dias.length === 0) {
+      Alert.alert('Error', 'Por favor completa todos los campos obligatorios');
+      return;
+    }
+
     try {
-      const resultado = await recordatoriosService.alternarEstado(id);
+      setSaving(true);
+      const datosActualizacion = {
+        nombre: editingReminder.nombre,
+        dosis: editingReminder.dosis,
+        hora: editingReminder.hora,
+        dias: editingReminder.dias,
+        activo: editingReminder.activo,
+      };
+
+      const resultado = await recordatoriosService.actualizar(editingReminder._id, datosActualizacion);
       
       if (resultado.exito) {
-        // Actualizar estado local
         setReminders(prev => 
-          prev.map(reminder =>
-            reminder._id === id ? resultado.datos : reminder
+          prev.map(reminder => 
+            reminder._id === editingReminder._id ? resultado.datos : reminder
           )
         );
         
-        // Actualizar recordatorios de hoy
-        const hoy = getToday();
-        if (resultado.datos.days.includes(hoy)) {
-          if (resultado.datos.active) {
-            setTodayReminders(prev => [...prev, resultado.datos]);
-          } else {
-            setTodayReminders(prev => prev.filter(r => r._id !== id));
-          }
-        } else if (!resultado.datos.active) {
-          setTodayReminders(prev => prev.filter(r => r._id !== id));
+        const resultadoHoy = await recordatoriosService.obtenerDeHoy();
+        if (resultadoHoy.exito) {
+          setTodayReminders(resultadoHoy.datos);
         }
-      } else {
-        Alert.alert('Error', resultado.mensaje || 'Error al cambiar estado');
+        
+        closeModals();
+        Alert.alert('Éxito', 'Recordatorio actualizado correctamente');
+      }
+    } catch (error) {
+      console.error('Error actualizando recordatorio:', error);
+      Alert.alert('Error', 'No se pudo actualizar el recordatorio');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleReminder = async (id) => {
+    try {
+      const resultado = await recordatoriosService.alternarEstado(id);
+      if (resultado.exito) {
+        setReminders(prev => 
+          prev.map(reminder => reminder._id === id ? resultado.datos : reminder)
+        );
+        const resultadoHoy = await recordatoriosService.obtenerDeHoy();
+        if (resultadoHoy.exito) {
+          setTodayReminders(resultadoHoy.datos);
+        }
       }
     } catch (error) {
       console.error('Error cambiando estado:', error);
@@ -164,13 +217,10 @@ const RemindersScreen = () => {
           onPress: async () => {
             try {
               const resultado = await recordatoriosService.eliminar(id);
-              
               if (resultado.exito) {
                 setReminders(prev => prev.filter(reminder => reminder._id !== id));
                 setTodayReminders(prev => prev.filter(reminder => reminder._id !== id));
                 Alert.alert('Éxito', 'Recordatorio eliminado correctamente');
-              } else {
-                Alert.alert('Error', resultado.mensaje || 'Error al eliminar');
               }
             } catch (error) {
               console.error('Error eliminando recordatorio:', error);
@@ -193,18 +243,15 @@ const RemindersScreen = () => {
           onPress: async () => {
             try {
               const resultado = await recordatoriosService.marcarTomado(id);
-              
               if (resultado.exito) {
-                // Actualizar el recordatorio en la lista
                 setReminders(prev => 
-                  prev.map(reminder =>
-                    reminder._id === id ? resultado.datos : reminder
-                  )
+                  prev.map(reminder => reminder._id === id ? resultado.datos : reminder)
                 );
-                
+                const resultadoHoy = await recordatoriosService.obtenerDeHoy();
+                if (resultadoHoy.exito) {
+                  setTodayReminders(resultadoHoy.datos);
+                }
                 Alert.alert('Éxito', 'Medicamento marcado como tomado');
-              } else {
-                Alert.alert('Error', resultado.mensaje || 'Error al marcar como tomado');
               }
             } catch (error) {
               console.error('Error marcando como tomado:', error);
@@ -217,53 +264,76 @@ const RemindersScreen = () => {
   };
 
   const renderReminderItem = ({ item }) => (
-    <View style={styles.reminderCard}>
+    <View style={[
+      styles.reminderCard,
+      !item.active && styles.reminderCardInactive
+    ]}>
       <View style={styles.reminderHeader}>
         <View style={styles.reminderInfo}>
-          <Text style={styles.reminderName}>{item.name}</Text>
-          <Text style={styles.reminderDosage}>{item.dosage}</Text>
+          <View style={styles.titleRow}>
+            <Icon name="medication" size={20} color="#2a8c4a" />
+            <Text style={styles.reminderName}>{item.name}</Text>
+          </View>
+          <View style={styles.dosageRow}>
+            <Icon name="science" size={16} color="#666" />
+            <Text style={styles.reminderDosage}>{item.dosage}</Text>
+          </View>
           <View style={styles.daysContainer}>
             {daysOfWeek.map(day => (
-              <Text
+              <View
                 key={day}
                 style={[
-                  styles.dayText,
-                  item.days.includes(day) ? styles.dayActive : styles.dayInactive,
+                  styles.dayPill,
+                  item.days.includes(day) ? styles.dayPillActive : styles.dayPillInactive,
                 ]}>
-                {day}
-              </Text>
+                <Text style={[
+                  styles.dayText,
+                  item.days.includes(day) ? styles.dayTextActive : styles.dayTextInactive,
+                ]}>
+                  {day}
+                </Text>
+              </View>
             ))}
           </View>
         </View>
         <View style={styles.timeContainer}>
+          <Icon name="access-time" size={18} color="#2a8c4a" />
           <Text style={styles.timeText}>{item.time}</Text>
         </View>
       </View>
       
       <View style={styles.reminderActions}>
-        <View style={styles.switchContainer}>
-          <Text style={styles.switchLabel}>
-            {item.active ? 'Activo' : 'Inactivo'}
-          </Text>
-          <Switch
-            value={item.active}
-            onValueChange={() => toggleReminder(item._id, item.active)}
-            trackColor={{ false: '#767577', true: '#9bfab0' }}
-            thumbColor={item.active ? '#2a8c4a' : '#f4f3f4'}
-          />
+        <View style={styles.statusContainer}>
+          <View style={styles.switchContainer}>
+            <Text style={styles.switchLabel}>
+              {item.active ? 'Activo' : 'Inactivo'}
+            </Text>
+            <Switch
+              value={item.active}
+              onValueChange={() => toggleReminder(item._id)}
+              trackColor={{ false: '#767577', true: '#9bfab0' }}
+              thumbColor={item.active ? '#2a8c4a' : '#f4f3f4'}
+            />
+          </View>
         </View>
         
         <View style={styles.actionButtons}>
           <TouchableOpacity 
+            style={[styles.actionButton, styles.editButton]}
+            onPress={() => openEditModal(item)}>
+            <Icon name="edit" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
             style={[styles.actionButton, styles.takenButton]}
             onPress={() => markAsTaken(item._id, item.name)}>
-            <Text style={styles.actionText}>✅</Text>
+            <Icon name="check-circle" size={18} color="#FFFFFF" />
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={[styles.actionButton, styles.deleteButton]}
             onPress={() => deleteReminder(item._id, item.name)}>
-            <Text style={styles.actionText}>🗑️</Text>
+            <Icon name="delete-outline" size={18} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </View>
@@ -272,17 +342,23 @@ const RemindersScreen = () => {
 
   const renderTodayReminder = (item) => (
     <View key={item._id} style={styles.todayReminder}>
-      <View style={styles.todayReminderInfo}>
-        <Text style={styles.todayReminderName}>{item.name}</Text>
-        <Text style={styles.todayReminderDosage}>{item.dosage}</Text>
-      </View>
-      <View style={styles.todayActions}>
-        <Text style={styles.todayReminderTime}>{item.time}</Text>
-        <TouchableOpacity 
-          style={styles.todayActionButton}
-          onPress={() => markAsTaken(item._id, item.name)}>
-          <Text style={styles.todayActionText}>Tomar</Text>
-        </TouchableOpacity>
+      <View style={styles.todayReminderContent}>
+        <View style={styles.todayReminderIcon}>
+          <Icon name="notifications-active" size={24} color="#2a8c4a" />
+        </View>
+        <View style={styles.todayReminderInfo}>
+          <Text style={styles.todayReminderName}>{item.name}</Text>
+          <Text style={styles.todayReminderDosage}>{item.dosage}</Text>
+        </View>
+        <View style={styles.todayActions}>
+          <Text style={styles.todayReminderTime}>{item.time}</Text>
+          <TouchableOpacity 
+            style={styles.todayActionButton}
+            onPress={() => markAsTaken(item._id, item.name)}>
+            <Icon name="check" size={16} color="#FFFFFF" />
+            <Text style={styles.todayActionText}>Tomar</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -305,49 +381,74 @@ const RemindersScreen = () => {
 
   return (
     <Layout title="Mis Recordatorios">
+      {/* Header con estadísticas */}
+      <View style={styles.headerStats}>
+        <View style={styles.statItem}>
+          <Icon name="today" size={24} color="#2a8c4a" />
+          <Text style={styles.statNumber}>{todayReminders.length}</Text>
+          <Text style={styles.statLabel}>Para hoy</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Icon name="list-alt" size={24} color="#2a8c4a" />
+          <Text style={styles.statNumber}>{reminders.length}</Text>
+          <Text style={styles.statLabel}>Total</Text>
+        </View>
+      </View>
+
       {/* Recordatorios de hoy */}
       <View style={styles.todaySection}>
-        <Text style={styles.sectionTitle}>📅 Recordatorios de Hoy</Text>
+        <View style={styles.sectionHeader}>
+          <Icon name="schedule" size={20} color="#2a8c4a" />
+          <Text style={styles.sectionTitle}>Recordatorios de Hoy</Text>
+        </View>
         {todayReminders.length > 0 ? (
           todayReminders.map(renderTodayReminder)
         ) : (
-          <Text style={styles.noRemindersText}>No hay recordatorios para hoy</Text>
+          <View style={styles.emptyToday}>
+            <Icon name="event-available" size={40} color="#d0fdd7" />
+            <Text style={styles.noRemindersText}>No hay recordatorios para hoy</Text>
+            <Text style={styles.noRemindersSubtext}>¡Descansa o agrega nuevos recordatorios!</Text>
+          </View>
         )}
       </View>
 
       {/* Todos los recordatorios */}
-      <FlatList
-        data={reminders}
-        renderItem={renderReminderItem}
-        keyExtractor={item => item._id}
-        contentContainerStyle={styles.listContainer}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={['#2a8c4a']}
-          />
-        }
-        ListHeaderComponent={
-          <Text style={styles.sectionTitle}>💊 Todos los Recordatorios</Text>
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>
-              No tienes recordatorios configurados
-            </Text>
-            <Text style={styles.emptyStateSubtext}>
-              ¡Agrega tu primer recordatorio!
-            </Text>
-          </View>
-        }
-      />
+      <View style={styles.allRemindersSection}>
+        <View style={styles.sectionHeader}>
+          <Icon name="format-list-bulleted" size={20} color="#2a8c4a" />
+          <Text style={styles.sectionTitle}>Todos los Recordatorios</Text>
+        </View>
+        <FlatList
+          data={reminders}
+          renderItem={renderReminderItem}
+          keyExtractor={item => item._id}
+          contentContainerStyle={styles.listContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#2a8c4a']}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Icon name="add-circle-outline" size={50} color="#d0fdd7" />
+              <Text style={styles.emptyStateText}>
+                No tienes recordatorios configurados
+              </Text>
+              <Text style={styles.emptyStateSubtext}>
+                Agrega tu primer recordatorio para comenzar
+              </Text>
+            </View>
+          }
+        />
+      </View>
 
       {/* Botón flotante para agregar */}
       <TouchableOpacity
         style={styles.addButton}
         onPress={() => setModalVisible(true)}>
-        <Icon name="add" size={30} color="#ffffff" />
+        <Icon name="add" size={28} color="#FFFFFF" />
       </TouchableOpacity>
 
       {/* Modal para agregar recordatorio */}
@@ -355,32 +456,47 @@ const RemindersScreen = () => {
         animationType="slide"
         transparent={true}
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}>
+        onRequestClose={closeModals}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Nuevo Recordatorio</Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Nuevo Recordatorio</Text>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={closeModals}>
+                <Icon name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
             
-            <TextInput
-              style={styles.input}
-              placeholder="Nombre del medicamento/suplemento"
-              value={newReminder.nombre}
-              onChangeText={text => setNewReminder({ ...newReminder, nombre: text })}
-            />
+            <View style={styles.inputGroup}>
+              <Icon name="medication" size={20} color="#2a8c4a" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Nombre del medicamento"
+                value={newReminder.nombre}
+                onChangeText={text => setNewReminder({ ...newReminder, nombre: text })}
+              />
+            </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Dosificación (ej: 1 cápsula, 2 tabletas)"
-              value={newReminder.dosis}
-              onChangeText={text => setNewReminder({ ...newReminder, dosis: text })}
-            />
+            <View style={styles.inputGroup}>
+              <Icon name="science" size={20} color="#2a8c4a" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Dosificación (ej: 1 cápsula)"
+                value={newReminder.dosis}
+                onChangeText={text => setNewReminder({ ...newReminder, dosis: text })}
+              />
+            </View>
 
-            <Text style={styles.inputLabel}>Hora del recordatorio</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="HH:MM"
-              value={newReminder.hora}
-              onChangeText={text => setNewReminder({ ...newReminder, hora: text })}
-            />
+            <View style={styles.inputGroup}>
+              <Icon name="access-time" size={20} color="#2a8c4a" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="HH:MM"
+                value={newReminder.hora}
+                onChangeText={text => setNewReminder({ ...newReminder, hora: text })}
+              />
+            </View>
 
             <Text style={styles.inputLabel}>Días de la semana</Text>
             <View style={styles.daysSelector}>
@@ -406,7 +522,7 @@ const RemindersScreen = () => {
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setModalVisible(false)}
+                onPress={closeModals}
                 disabled={saving}>
                 <Text style={styles.cancelButtonText}>Cancelar</Text>
               </TouchableOpacity>
@@ -415,12 +531,122 @@ const RemindersScreen = () => {
                 onPress={addReminder}
                 disabled={saving}>
                 {saving ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
+                  <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={styles.saveButtonText}>Guardar</Text>
+                  <>
+                    <Icon name="save" size={18} color="#FFFFFF" />
+                    <Text style={styles.saveButtonText}> Guardar</Text>
+                  </>
                 )}
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal para editar recordatorio */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={editModalVisible}
+        onRequestClose={closeModals}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Editar Recordatorio</Text>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={closeModals}>
+                <Icon name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            
+            {editingReminder && (
+              <>
+                <View style={styles.inputGroup}>
+                  <Icon name="medication" size={20} color="#2a8c4a" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Nombre del medicamento"
+                    value={editingReminder.nombre}
+                    onChangeText={text => setEditingReminder({ ...editingReminder, nombre: text })}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Icon name="science" size={20} color="#2a8c4a" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Dosificación (ej: 1 cápsula)"
+                    value={editingReminder.dosis}
+                    onChangeText={text => setEditingReminder({ ...editingReminder, dosis: text })}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Icon name="access-time" size={20} color="#2a8c4a" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="HH:MM"
+                    value={editingReminder.hora}
+                    onChangeText={text => setEditingReminder({ ...editingReminder, hora: text })}
+                  />
+                </View>
+
+                <Text style={styles.inputLabel}>Días de la semana</Text>
+                <View style={styles.daysSelector}>
+                  {daysOfWeek.map(day => (
+                    <TouchableOpacity
+                      key={day}
+                      style={[
+                        styles.dayButton,
+                        editingReminder.dias.includes(day) && styles.dayButtonActive,
+                      ]}
+                      onPress={() => toggleEditDay(day)}>
+                      <Text
+                        style={[
+                          styles.dayButtonText,
+                          editingReminder.dias.includes(day) && styles.dayButtonTextActive,
+                        ]}>
+                        {day}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <View style={styles.switchContainerModal}>
+                  <Text style={styles.switchLabelModal}>Recordatorio activo</Text>
+                  <Switch
+                    value={editingReminder.activo}
+                    onValueChange={(value) => setEditingReminder({ ...editingReminder, activo: value })}
+                    trackColor={{ false: '#767577', true: '#9bfab0' }}
+                    thumbColor={editingReminder.activo ? '#2a8c4a' : '#f4f3f4'}
+                  />
+                </View>
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={closeModals}
+                    disabled={saving}>
+                    <Text style={styles.cancelButtonText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.saveButton, saving && styles.saveButtonDisabled]}
+                    onPress={updateReminder}
+                    disabled={saving}>
+                    {saving ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <>
+                        <Icon name="save" size={18} color="#FFFFFF" />
+                        <Text style={styles.saveButtonText}> Actualizar</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -429,115 +655,225 @@ const RemindersScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  todaySection: {
-    backgroundColor: '#f8f8f8',
+  editButton: {
+    backgroundColor: '#FFA500',
+  },
+  switchContainerModal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    paddingHorizontal: 8,
+  },
+  switchLabelModal: {
+    fontSize: 16,
+    color: '#2a8c4a',
+    fontWeight: '500',
+  },
+  headerStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: '#FFFFFF',
     padding: 20,
-    marginBottom: 10,
+    marginHorizontal: 20,
+    marginTop: 10,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2a8c4a',
+    marginVertical: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#666',
+  },
+  todaySection: {
+    backgroundColor: '#F8F9FA',
+    padding: 20,
+    marginTop: 10,
+  },
+  allRemindersSection: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#2a8c4a',
-    marginBottom: 15,
+    marginLeft: 8,
   },
   todayReminder: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    padding: 15,
-    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     marginBottom: 10,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
     borderLeftWidth: 4,
     borderLeftColor: '#64c27b',
+  },
+  todayReminderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  todayReminderIcon: {
+    marginRight: 12,
   },
   todayReminderInfo: {
     flex: 1,
   },
   todayReminderName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#2a8c4a',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   todayReminderDosage: {
     fontSize: 14,
     color: '#666',
   },
-  todayReminderTime: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2a8c4a',
+  todayActions: {
+    alignItems: 'flex-end',
   },
-  noRemindersText: {
-    textAlign: 'center',
-    color: '#999',
-    fontStyle: 'italic',
+  todayReminderTime: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2a8c4a',
+    marginBottom: 6,
+  },
+  todayActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#64c27b',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  todayActionText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 4,
   },
   listContainer: {
-    padding: 20,
+    paddingBottom: 20,
   },
   reminderCard: {
     backgroundColor: '#d0fdd7',
     borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  reminderCardInactive: {
+    opacity: 0.6,
+    backgroundColor: '#F8F9FA',
   },
   reminderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 15,
+    marginBottom: 12,
   },
   reminderInfo: {
     flex: 1,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
   reminderName: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
     color: '#2a8c4a',
-    marginBottom: 5,
+    marginLeft: 8,
+  },
+  dosageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
   },
   reminderDosage: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 10,
+    marginLeft: 6,
   },
   daysContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  dayPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 6,
+    marginBottom: 4,
+  },
+  dayPillActive: {
+    backgroundColor: '#2a8c4a',
+  },
+  dayPillInactive: {
+    backgroundColor: '#E9ECEF',
   },
   dayText: {
-    fontSize: 12,
-    marginRight: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
+    fontSize: 11,
+    fontWeight: '500',
   },
-  dayActive: {
-    backgroundColor: '#2a8c4a',
-    color: '#ffffff',
+  dayTextActive: {
+    color: '#FFFFFF',
   },
-  dayInactive: {
-    backgroundColor: '#e0e0e0',
-    color: '#999',
+  dayTextInactive: {
+    color: '#666',
   },
   timeContainer: {
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#2a8c4a',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#64c27b',
   },
   timeText: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '600',
     color: '#2a8c4a',
+    marginLeft: 4,
   },
   reminderActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#9bfab0',
+    paddingTop: 12,
+  },
+  statusContainer: {
+    flex: 1,
   },
   switchContainer: {
     flexDirection: 'row',
@@ -548,15 +884,64 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 14,
   },
-  actionButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    backgroundColor: '#64c27b',
-    borderRadius: 20,
+  actionButtons: {
+    flexDirection: 'row',
   },
-  actionText: {
-    color: '#ffffff',
-    fontWeight: '500',
+  actionButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  takenButton: {
+    backgroundColor: '#64c27b',
+  },
+  deleteButton: {
+    backgroundColor: '#E74C3C',
+  },
+  emptyToday: {
+    alignItems: 'center',
+    padding: 30,
+  },
+  noRemindersText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  noRemindersSubtext: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  emptyState: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#666',
+    fontSize: 16,
   },
   addButton: {
     position: 'absolute',
@@ -568,11 +953,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#64c27b',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 5,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   modalContainer: {
     flex: 1,
@@ -581,59 +966,81 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     padding: 20,
     width: '90%',
     maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#2a8c4a',
-    marginBottom: 20,
-    textAlign: 'center',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  inputGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#d0fdd7',
+    borderRadius: 8,
+    marginBottom: 15,
+    paddingHorizontal: 12,
+    backgroundColor: '#F8F9FA',
+  },
+  inputIcon: {
+    marginRight: 8,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
+    flex: 1,
     padding: 12,
-    marginBottom: 15,
     fontSize: 16,
+    color: '#2a8c4a',
   },
   inputLabel: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#666',
+    color: '#2a8c4a',
     marginBottom: 10,
   },
   daysSelector: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'space-between',
     marginBottom: 20,
   },
   dayButton: {
-    width: '13%',
-    aspectRatio: 1,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#2a8c4a',
+    borderColor: '#64c27b',
     borderRadius: 20,
-    marginBottom: 5,
+    backgroundColor: '#FFFFFF',
   },
   dayButtonActive: {
-    backgroundColor: '#2a8c4a',
+    backgroundColor: '#64c27b',
   },
   dayButtonText: {
     fontSize: 12,
-    color: '#2a8c4a',
+    color: '#64c27b',
     fontWeight: '500',
   },
   dayButtonTextActive: {
-    color: '#ffffff',
+    color: '#FFFFFF',
   },
   modalActions: {
     flexDirection: 'row',
@@ -641,82 +1048,34 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 15,
     borderRadius: 8,
     marginHorizontal: 5,
-    alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#F8F9FA',
+    borderWidth: 1,
+    borderColor: '#d0fdd7',
   },
   saveButton: {
-    backgroundColor: '#2a8c4a',
+    backgroundColor: '#64c27b',
   },
   cancelButtonText: {
     color: '#666',
     fontWeight: '500',
+    fontSize: 16,
   },
   saveButtonText: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontWeight: '500',
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyStateText: {
-    fontSize: 18,
-    color: '#666',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  emptyStateSubtext: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    color: '#666',
-  },
-  todayActions: {
-    alignItems: 'flex-end',
-  },
-  todayActionButton: {
-    paddingHorizontal: 15,
-    paddingVertical: 5,
-    backgroundColor: '#64c27b',
-    borderRadius: 15,
-    marginTop: 5,
-  },
-  todayActionText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-  },
-  actionButton: {
-    padding: 8,
-    borderRadius: 20,
-    marginLeft: 10,
-  },
-  takenButton: {
-    backgroundColor: '#27ae60',
-  },
-  deleteButton: {
-    backgroundColor: '#e74c3c',
+    fontSize: 16,
   },
   saveButtonDisabled: {
     opacity: 0.6,
   },
-
 });
 
 export default RemindersScreen;
