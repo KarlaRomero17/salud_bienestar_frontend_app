@@ -9,13 +9,47 @@ import HomeScreen from '../screens/Dashboard/HomeScreen';
 import LoginScreen from '../screens/Auth/LoginScreen';
 import RegisterScreen from '../screens/Auth/RegisterScreen';
 //Importando screens para el Tab Navigator
-import ActividadFisicaScreen from '../screens/ActividadFisica/ActividadFisicaScreen';
 import PlanesDeComidaScreen from '../screens/PlanesDeComida/PlanesDeComidaScreen';
 import ForosScreen from '../screens/Foros/ForosScreen';
 import ConfiguracionesScreen from '../screens/Configuraciones/ConfiguracionesScreen';
+//Importaciones de actividad fisica
+import MenuActividadFisica from '../screens/Dashboard/MenuActividadFisica';
+import NuevaSesionScreen from '../screens/ActividadFisica/NuevaSesionScreen'; 
+import AgregarActividadScreen from '../screens/ActividadFisica/AgregarActividadScreen';
+import EstadisticasScreen from '../screens/ActividadFisica/EstadisticasScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+function ActividadFisicaStack() {
+  return (
+    <Stack.Navigator
+      initialRouteName="MenuActividad"
+      screenOptions={{ 
+          headerShown: false 
+      }}
+    >
+      <Stack.Screen name="MenuActividad" component={MenuActividadFisica} /> 
+      <Stack.Screen 
+        name="NuevaSesion" 
+        component={NuevaSesionScreen} 
+        options={{ headerShown: true, title: 'Nueva Sesión de Actividad' }} 
+      />           
+      <Stack.Screen 
+        name="AgregarActividad" 
+        component={AgregarActividadScreen} 
+        options={{ headerShown: true, title: 'Añadir Actividad' }} 
+      />
+       <Stack.Screen 
+        name="Estadisticas" 
+        component={EstadisticasScreen} 
+        options={{ headerShown: true, title: 'Nueva Sesión de Actividad' }} 
+      />   
+    </Stack.Navigator>
+  );
+}
+
+
 
 function MainTabs({ initialRouteName }) {
   return (
@@ -51,7 +85,7 @@ function MainTabs({ initialRouteName }) {
       />
       <Tab.Screen
         name="Entrenamientos"
-        component={ActividadFisicaScreen}
+        component={ActividadFisicaStack}
         options={{
           tabBarLabel: 'Entrenamientos',
           tabBarIcon: ({ color, size }) => (
