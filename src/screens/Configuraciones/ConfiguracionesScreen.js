@@ -1,19 +1,21 @@
-import React, { useContext, useEffect } from 'react';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { useContext, useEffect } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
+  Alert,
   SafeAreaView,
   ScrollView,
-  Alert
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
 
 export default function ConfiguracionesScreen() {
   const { logout, user, isNewUser, setIsNewUser } = useContext(AuthContext);
-
+  const navigation = useNavigation();
+  
   // Mostrar alerta solo si es nuevo usuario
   useEffect(() => {
     if (isNewUser) {
@@ -37,7 +39,6 @@ export default function ConfiguracionesScreen() {
       Alert.alert('Error', 'La función logout no está disponible');
       return;
     }
-    
     Alert.alert(
       'Cerrar Sesión',
       '¿Estás seguro que deseas cerrar sesión?',
@@ -63,6 +64,11 @@ export default function ConfiguracionesScreen() {
     );
   };
 
+  // Función para navegar a HealthGoalScreen
+  const navigateToHealthGoals = () => {
+    navigation.navigate('HealthGoal');
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -84,10 +90,27 @@ export default function ConfiguracionesScreen() {
         {/* Opciones de Configuración */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Opciones</Text>
-          
           <TouchableOpacity style={styles.optionButton}>
             <MaterialIcons name="person" size={24} color="#10b981" />
             <Text style={styles.optionText}>Editar Perfil</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#64748b" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.optionButton}
+            onPress={navigateToHealthGoals}
+          >
+            <MaterialIcons name="flag" size={24} color="#10b981" />
+            <Text style={styles.optionText}>Objetivos de Salud</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#64748b" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.optionButton}
+            onPress={() => navigation.navigate('Reminders')}
+          >
+            <MaterialIcons name="alarm" size={24} color="#10b981" />
+            <Text style={styles.optionText}>Recordatorios</Text>
             <MaterialIcons name="chevron-right" size={24} color="#64748b" />
           </TouchableOpacity>
 

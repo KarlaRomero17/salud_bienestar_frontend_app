@@ -1,55 +1,25 @@
-import React, { useContext } from 'react';
+// AppNavigation.js - VERSIÓN CORREGIDA
+import { MaterialIcons } from '@expo/vector-icons';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { MaterialIcons } from '@expo/vector-icons';
+import { useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 
-import HomeScreen from '../screens/Dashboard/HomeScreen';
 import LoginScreen from '../screens/Auth/LoginScreen';
 import RegisterScreen from '../screens/Auth/RegisterScreen';
+import HomeScreen from '../screens/Dashboard/HomeScreen';
 //Importando screens para el Tab Navigator
-import PlanesDeComidaScreen from '../screens/PlanesDeComida/PlanesDeComidaScreen';
-import ForosScreen from '../screens/Foros/ForosScreen';
+import ActividadFisicaScreen from '../screens/ActividadFisica/ActividadFisicaScreen';
 import ConfiguracionesScreen from '../screens/Configuraciones/ConfiguracionesScreen';
-//Importaciones de actividad fisica
-import MenuActividadFisica from '../screens/Dashboard/MenuActividadFisica';
-import NuevaSesionScreen from '../screens/ActividadFisica/NuevaSesionScreen'; 
-import AgregarActividadScreen from '../screens/ActividadFisica/AgregarActividadScreen';
-import EstadisticasScreen from '../screens/ActividadFisica/EstadisticasScreen';
+import ForosScreen from '../screens/Foros/ForosScreen';
+import PlanesDeComidaScreen from '../screens/PlanesDeComida/PlanesDeComidaScreen';
+import HealthGoalsScreen from '../screens/Progress/HealthGoalsScreen';
+import ProgressScreen from '../screens/Progress/ProgressScreen';
+import RemindersScreen from '../screens/Progress/RemindersScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
-
-function ActividadFisicaStack() {
-  return (
-    <Stack.Navigator
-      initialRouteName="MenuActividad"
-      screenOptions={{ 
-          headerShown: false 
-      }}
-    >
-      <Stack.Screen name="MenuActividad" component={MenuActividadFisica} /> 
-      <Stack.Screen 
-        name="NuevaSesion" 
-        component={NuevaSesionScreen} 
-        options={{ headerShown: true, title: 'Nueva Sesión de Actividad' }} 
-      />           
-      <Stack.Screen 
-        name="AgregarActividad" 
-        component={AgregarActividadScreen} 
-        options={{ headerShown: true, title: 'Añadir Actividad' }} 
-      />
-       <Stack.Screen 
-        name="Estadisticas" 
-        component={EstadisticasScreen} 
-        options={{ headerShown: true, title: 'Nueva Sesión de Actividad' }} 
-      />   
-    </Stack.Navigator>
-  );
-}
-
-
 
 function MainTabs({ initialRouteName }) {
   return (
@@ -85,7 +55,7 @@ function MainTabs({ initialRouteName }) {
       />
       <Tab.Screen
         name="Entrenamientos"
-        component={ActividadFisicaStack}
+        component={ActividadFisicaScreen}
         options={{
           tabBarLabel: 'Entrenamientos',
           tabBarIcon: ({ color, size }) => (
@@ -134,9 +104,37 @@ export default function AppNavigation() {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
-          <Stack.Screen name="MainTabs">
-            {(props) => <MainTabs {...props} initialRouteName={isNewUser ? 'Configuracion' : 'Home'} />}
-          </Stack.Screen>
+          <>
+            <Stack.Screen name="MainTabs">
+              {(props) => <MainTabs {...props} initialRouteName={isNewUser ? 'Configuracion' : 'Home'} />}
+            </Stack.Screen>
+            <Stack.Screen
+              name="HealthGoal"
+              component={HealthGoalsScreen}
+              options={{
+                headerShown: true,
+                title: 'Objetivos de Salud',
+                headerBackTitle: 'Atrás'
+              }}
+            />
+            {/* recordatorios */}
+            <Stack.Screen
+              name="Reminders"
+              component={RemindersScreen}
+              options={{
+                headerShown: true,
+                title: 'Recordatorios',
+                headerBackTitle: 'Atrás'
+              }}
+            />
+            <Stack.Screen name="Progress" component={ProgressScreen}
+              options={{
+                headerShown: true,
+                title: 'Progreso',
+                headerBackTitle: 'Atrás'
+              }} 
+            />
+          </>
         ) : (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
