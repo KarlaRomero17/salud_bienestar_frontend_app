@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -10,21 +10,43 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
+import { AuthContext } from '../../context/AuthContext';
+import { getFirebaseErrorMessage } from '../../utils/firebaseErrors';
 
-export default function LoginScreen() {
+export default function LoginScreen({ navigation }) {
+  const { login } = useContext(AuthContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = () => {
     if (!email || !password) {
       Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
-    // Aquí iría la lógica de autenticación
-    Alert.alert('Éxito', 'Inicio de sesión exitoso');
+
+    setIsLoading(true);
+    (async () => {
+      try {
+        const res = await login(email, password);
+        if (res && res.success) {
+          // Login exitoso - no mostrar alerta, navegación automática
+        } else {
+          const message = getFirebaseErrorMessage(res?.error);
+          Alert.alert('Error', message);
+        }
+      } catch (e) {
+        console.warn('login error', e);
+        const message = getFirebaseErrorMessage(e);
+        Alert.alert('Error', message);
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   };
 
   const handleForgotPassword = () => {
@@ -102,8 +124,16 @@ export default function LoginScreen() {
             </TouchableOpacity>
 
             {/* Botón de Login */}
-            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-              <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
+            <TouchableOpacity 
+              style={[styles.loginButton, isLoading && styles.disabledButton]} 
+              onPress={handleLogin}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
+              )}
             </TouchableOpacity>
 
             {/* Separador */}
@@ -114,7 +144,7 @@ export default function LoginScreen() {
             </View>
 
             {/* Botón de Registro */}
-            <TouchableOpacity style={styles.registerButton}>
+            <TouchableOpacity style={styles.registerButton} onPress={() => navigation.navigate('Register')}>
               <Text style={styles.registerButtonText}>
                 ¿No tienes cuenta? Regístrate
               </Text>
@@ -284,6 +314,9 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
   separator: {
     flexDirection: 'row',
