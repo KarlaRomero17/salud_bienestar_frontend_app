@@ -12,7 +12,10 @@ import HomeScreen from '../screens/Dashboard/HomeScreen';
 //Importando screens para el Tab Navigator
 import ActividadFisicaScreen from '../screens/ActividadFisica/ActividadFisicaScreen';
 import ConfiguracionesScreen from '../screens/Configuraciones/ConfiguracionesScreen';
-import ForosScreen from '../screens/Foros/ForosScreen';
+//import ForosScreen from '../screens/Foros/ForosScreen';
+import ForumScreen from '../screens/Forum/ForumScreen';
+import NewPublicationScreen from '../screens/Forum/NewPublicationScreen';
+import PublicatonDetailsScreen from '../screens/Forum/PublicationDetailsScreen';
 import PlanesDeComidaScreen from '../screens/PlanesDeComida/PlanesDeComidaScreen';
 import HealthGoalsScreen from '../screens/Progress/HealthGoalsScreen';
 import ProgressScreen from '../screens/Progress/ProgressScreen';
@@ -75,7 +78,7 @@ function MainTabs({ initialRouteName }) {
       />
       <Tab.Screen
         name="Foros"
-        component={ForosScreen}
+        component={ForumScreen}
         options={{
           tabBarLabel: 'Foros',
           tabBarIcon: ({ color, size }) => (
@@ -134,6 +137,22 @@ export default function AppNavigation() {
                 headerBackTitle: 'Atrás'
               }} 
             />
+            <Stack.Screen name="NewPublication" component={NewPublicationScreen}
+              options={{
+                headerShown: true,
+                title: 'Nueva Publicación',
+                headerBackTitle: 'Atrás'
+              }} 
+            />
+
+            <Stack.Screen name="PublicationDetails" component={PublicatonDetailsScreen}
+              options={{
+                headerShown: true,
+                title: 'Detalles Publicación',
+                headerBackTitle: 'Atrás'
+              }} 
+            />
+            
           </>
         ) : (
           <>

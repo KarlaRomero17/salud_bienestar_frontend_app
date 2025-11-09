@@ -30,7 +30,9 @@ const data = [
 
 export default function FurumScreen({navigation}) {
   const renderItem = ({ item }) => (
-    <TouchableOpacity style={styles.card}>
+    <TouchableOpacity style={styles.card}
+     onPress={() => navigation.navigate('PublicationDetails', { post: item })} 
+     >
       <Image source={{ uri: item.avatar }} style={styles.avatar} />
       <View style={styles.textContainer}>
         <Text style={styles.title}>{item.title}</Text>
@@ -57,7 +59,7 @@ export default function FurumScreen({navigation}) {
             />
             {/* Agregar nueva Publicación */}
             <TouchableOpacity style={styles.fab}
-              onPress={() => navigation.navigate('Nueva Publicación')}
+              onPress={() => navigation.navigate('NewPublication')}
             >
               <Ionicons name="add" size={28} color="#fff" />
             </TouchableOpacity>
