@@ -22,10 +22,22 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+       "permissions": [
+        "android.permission.POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-notifications",
+      "expo-dev-client"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e6bf2e50-599f-46b0-8217-c65ef8bcf11e"
+      }
     }
   }
 }

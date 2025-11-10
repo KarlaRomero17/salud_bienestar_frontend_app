@@ -16,6 +16,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import Layout from '../../components/Layout';
 import { recordatoriosService } from '../../services/recordatoriosService';
 import { AuthContext } from '../../context/AuthContext';
+import { useNotifications } from '../../utils/useNotifications';
 
 const RemindersScreen = () => {
   const { user } = useContext(AuthContext);
@@ -27,7 +28,8 @@ const RemindersScreen = () => {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingReminder, setEditingReminder] = useState(null);
-  
+  const [notificationSettingsVisible, setNotificationSettingsVisible] = useState(false);
+  const { notificationsEnabled, isLoading, requestPermissions, enviarNotificacionPrueba } = useNotifications(user?.uid);
   const [newReminder, setNewReminder] = useState({
     nombre: '',
     dosis: '',
@@ -39,6 +41,29 @@ const RemindersScreen = () => {
 
   const daysOfWeek = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
+  const probarNotificacion = async () => {
+    await enviarNotificacionPrueba();
+  };
+  const activarNotificaciones = async () => {
+    await requestPermissions();
+  };
+  const NotificationStatus = () => (
+    <TouchableOpacity
+      style={styles.notificationStatus}
+      onPress={() => setNotificationSettingsVisible(true)}
+    >
+      <Icon
+        name={notificationsEnabled ? "notifications-active" : "notifications-off"}
+        size={20}
+        color={notificationsEnabled ? "#2a8c4a" : "#666"}
+      />
+      <Text style={styles.notificationStatusText}>
+        {notificationsEnabled ? 'Notificaciones activas' : 'Activar notificaciones'}
+      </Text>
+    </TouchableOpacity>
+  );
+
+
   // Cargar recordatorios
   const cargarRecordatorios = async () => {
     // Validar que el usuario esté autenticado
@@ -49,7 +74,7 @@ const RemindersScreen = () => {
 
     try {
       setLoading(true);
-      
+
       const resultadoTodos = await recordatoriosService.obtenerTodos();
       if (resultadoTodos.exito) {
         setReminders(resultadoTodos.datos);
@@ -60,7 +85,7 @@ const RemindersScreen = () => {
         setTodayReminders(resultadoHoy.datos);
       } else {
         const hoy = getToday();
-        const recordatoriosHoy = resultadoTodos.datos.filter(reminder => 
+        const recordatoriosHoy = resultadoTodos.datos.filter(reminder =>
           reminder.active && reminder.days.includes(hoy)
         );
         setTodayReminders(recordatoriosHoy);
@@ -145,14 +170,14 @@ const RemindersScreen = () => {
     try {
       setSaving(true);
       const resultado = await recordatoriosService.crear(newReminder);
-      
+
       if (resultado.exito) {
         setReminders(prev => [...prev, resultado.datos]);
         const resultadoHoy = await recordatoriosService.obtenerDeHoy();
         if (resultadoHoy.exito) {
           setTodayReminders(resultadoHoy.datos);
         }
-        
+
         closeModals();
         Alert.alert('Éxito', 'Recordatorio creado correctamente');
       }
@@ -181,19 +206,19 @@ const RemindersScreen = () => {
       };
 
       const resultado = await recordatoriosService.actualizar(editingReminder._id, datosActualizacion);
-      
+
       if (resultado.exito) {
-        setReminders(prev => 
-          prev.map(reminder => 
+        setReminders(prev =>
+          prev.map(reminder =>
             reminder._id === editingReminder._id ? resultado.datos : reminder
           )
         );
-        
+
         const resultadoHoy = await recordatoriosService.obtenerDeHoy();
         if (resultadoHoy.exito) {
           setTodayReminders(resultadoHoy.datos);
         }
-        
+
         closeModals();
         Alert.alert('Éxito', 'Recordatorio actualizado correctamente');
       }
@@ -209,7 +234,7 @@ const RemindersScreen = () => {
     try {
       const resultado = await recordatoriosService.alternarEstado(id);
       if (resultado.exito) {
-        setReminders(prev => 
+        setReminders(prev =>
           prev.map(reminder => reminder._id === id ? resultado.datos : reminder)
         );
         const resultadoHoy = await recordatoriosService.obtenerDeHoy();
@@ -222,6 +247,26 @@ const RemindersScreen = () => {
       Alert.alert('Error', 'No se pudo cambiar el estado');
     }
   };
+
+  const enviarNotificacionLocalPrueba = async () => {
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '💊 Recordatorio Local',
+        body: 'Esta es una notificación local de prueba',
+        sound: true,
+        data: { type: 'test-local' },
+      },
+      trigger: {
+        seconds: 5, // En 5 segundos
+      },
+    });
+    
+    Alert.alert('✅', 'Notificación local programada para 5 segundos');
+  } catch (error) {
+    console.error('Error notificación local:', error);
+  }
+};
 
   const deleteReminder = async (id, name) => {
     Alert.alert(
@@ -262,7 +307,7 @@ const RemindersScreen = () => {
             try {
               const resultado = await recordatoriosService.marcarTomado(id);
               if (resultado.exito) {
-                setReminders(prev => 
+                setReminders(prev =>
                   prev.map(reminder => reminder._id === id ? resultado.datos : reminder)
                 );
                 const resultadoHoy = await recordatoriosService.obtenerDeHoy();
@@ -280,6 +325,93 @@ const RemindersScreen = () => {
       ]
     );
   };
+
+  // Modal de configuracion de notificaciones (agregar en tu JSX)
+  const NotificationSettingsModal = () => (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={notificationSettingsVisible}
+      onRequestClose={() => setNotificationSettingsVisible(false)}
+    >
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Configuración de Notificaciones</Text>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setNotificationSettingsVisible(false)}>
+              <Icon name="close" size={24} color="#666" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.notificationInfo}>
+            <Icon
+              name={notificationsEnabled ? "check-circle" : "notifications-off"}
+              size={40}
+              color={notificationsEnabled ? "#2a8c4a" : "#FFA500"}
+            />
+            <Text style={styles.notificationStatusTitle}>
+              {notificationsEnabled ? 'Notificaciones Activadas' : 'Notificaciones Desactivadas'}
+            </Text>
+            <Text style={styles.notificationStatusDescription}>
+              {notificationsEnabled
+                ? `Tienes permisos para recibir notificaciones. ${todayReminders.length} recordatorio(s) programados para hoy.`
+                : 'Necesitas activar los permisos de notificación para recibir recordatorios.'}
+            </Text>
+
+            {permissionStatus === 'denied' && Platform.OS === 'android' && (
+              <TouchableOpacity
+                style={styles.permissionHelp}
+                onPress={mostrarInfoPermisos}>
+                <Text style={styles.permissionHelpText}>
+                  ¿Los permisos fueron denegados? Toca aquí para ver cómo activarlos.
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.cancelButton]}
+              onPress={() => setNotificationSettingsVisible(false)}>
+              <Text style={styles.cancelButtonText}>Cerrar</Text>
+            </TouchableOpacity>
+
+            {!notificationsEnabled ? (
+              <TouchableOpacity
+                style={[styles.modalButton, styles.activateButton]}
+                onPress={requestPermissions}
+                disabled={isLoading}>
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Icon name="notifications" size={18} color="#FFFFFF" />
+                    <Text style={styles.activateButtonText}> Activar</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.modalButton, styles.testButton]}
+                onPress={enviarNotificacionPrueba}
+                disabled={isLoading}>
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Icon name="send" size={18} color="#FFFFFF" />
+                    <Text style={styles.testButtonText}> Probar</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 
   const renderReminderItem = ({ item }) => (
     <View style={[
@@ -319,7 +451,7 @@ const RemindersScreen = () => {
           <Text style={styles.timeText}>{item.time}</Text>
         </View>
       </View>
-      
+
       <View style={styles.reminderActions}>
         <View style={styles.statusContainer}>
           <View style={styles.switchContainer}>
@@ -334,21 +466,21 @@ const RemindersScreen = () => {
             />
           </View>
         </View>
-        
+
         <View style={styles.actionButtons}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.actionButton, styles.editButton]}
             onPress={() => openEditModal(item)}>
             <Icon name="edit" size={18} color="#FFFFFF" />
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[styles.actionButton, styles.takenButton]}
             onPress={() => markAsTaken(item._id, item.name)}>
             <Icon name="check-circle" size={18} color="#FFFFFF" />
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[styles.actionButton, styles.deleteButton]}
             onPress={() => deleteReminder(item._id, item.name)}>
             <Icon name="delete-outline" size={18} color="#FFFFFF" />
@@ -370,7 +502,7 @@ const RemindersScreen = () => {
         </View>
         <View style={styles.todayActions}>
           <Text style={styles.todayReminderTime}>{item.time}</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.todayActionButton}
             onPress={() => markAsTaken(item._id, item.name)}>
             <Icon name="check" size={16} color="#FFFFFF" />
@@ -479,13 +611,13 @@ const RemindersScreen = () => {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Nuevo Recordatorio</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.closeButton}
                 onPress={closeModals}>
                 <Icon name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
-            
+
             <View style={styles.inputGroup}>
               <Icon name="medication" size={20} color="#2a8c4a" style={styles.inputIcon} />
               <TextInput
@@ -572,13 +704,13 @@ const RemindersScreen = () => {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Editar Recordatorio</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.closeButton}
                 onPress={closeModals}>
                 <Icon name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
-            
+
             {editingReminder && (
               <>
                 <View style={styles.inputGroup}>
@@ -668,6 +800,7 @@ const RemindersScreen = () => {
           </View>
         </View>
       </Modal>
+      <NotificationStatus />
     </Layout>
   );
 };
@@ -1094,6 +1227,80 @@ const styles = StyleSheet.create({
   saveButtonDisabled: {
     opacity: 0.6,
   },
+  headerContainer: {
+    paddingHorizontal: 20,
+  },
+  notificationStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+    borderRadius: 12,
+    marginTop: 10,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  notificationStatusText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  notificationInfo: {
+    alignItems: 'center',
+    padding: 20,
+  },
+  notificationStatusTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#2a8c4a',
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  notificationStatusDescription: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 15,
+  },
+  activateButton: {
+    backgroundColor: '#2a8c4a',
+  },
+  activateButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '500',
+    fontSize: 16,
+  },
+  testButton: {
+    backgroundColor: '#FFA500',
+  },
+  testButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '500',
+    fontSize: 16,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  permissionHelp: {
+  marginTop: 10,
+  padding: 8,
+  backgroundColor: '#FFF3CD',
+  borderRadius: 6,
+  borderWidth: 1,
+  borderColor: '#FFEAA7',
+},
+permissionHelpText: {
+  fontSize: 12,
+  color: '#856404',
+  textAlign: 'center',
+  fontStyle: 'italic',
+},
 });
 
 export default RemindersScreen;

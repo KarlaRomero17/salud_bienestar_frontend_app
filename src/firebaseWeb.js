@@ -9,7 +9,7 @@ const firebaseConfig = {
   storageBucket: "appsaludybienestar-b7b70.firebasestorage.app",
   messagingSenderId: "674168458233",
   appId: "1:674168458233:web:cac29391dbb4d9ec9ccb28",
-  measurementId: "G-R6YH0Y7GN3"
+  measurementId: "G-R6YH0Y7GN3",
 };
 
 export default firebaseConfig;

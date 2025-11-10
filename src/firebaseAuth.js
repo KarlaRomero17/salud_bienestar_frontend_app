@@ -15,14 +15,15 @@ if (getApps().length === 0) {
   app = getApps()[0];
 }
 
-// Inicializar Auth solo si no existe
+// Inicializar Auth con persistencia
 let auth;
 try {
-  auth = getAuth(app);
-} catch (error) {
   auth = initializeAuth(app, {
     persistence: getReactNativePersistence(AsyncStorage)
   });
+} catch (error) {
+  console.log('Auth ya inicializado, obteniendo instancia existente:', error.message);
+  auth = getAuth(app);
 }
 
 const db = getDatabase(app);
