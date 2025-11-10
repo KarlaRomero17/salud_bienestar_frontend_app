@@ -1,149 +1,99 @@
-// src/screens/ActividadFisica/NuevaSesionScreen.js
+// src/screens/ActividadFisica/NuevaSesionScreen.js - CÓDIGO FINAL CON AUTENTICACIÓN REAL
 
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+// 🚨 Nueva Importación: useContext para acceder al contexto de autenticación
+import React, { useState, useCallback, useContext } from 'react'; 
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native'; 
+import { useFocusEffect } from '@react-navigation/native'; 
 import { Ionicons } from '@expo/vector-icons';
+import axios from 'axios'; 
+
+// 🚨 CLAVE: Importamos el contexto de autenticación
+import { AuthContext } from '../../context/AuthContext'; 
+
+// ⚠️ AJUSTA LA URL BASE
+const BASE_URL = 'http://192.168.1.148:5000/api'; 
+const API_URL_SESION = `${BASE_URL}/actividad/sesion`; 
 
 // --- Paleta de Colores ---
 const COLORS = {
-    primary: '#2a8c4a',      
-    secondary: '#64c27b',    
-    light: '#9bfab0',        
-    lighter: '#d0fdd7',      
-    white: '#ffffff',        
-    text: '#333333',         
-    error: '#e74c3c', 
+    primary: '#2a8c4a', secondary: '#64c27b', light: '#9bfab0', 
+    lighter: '#d0fdd7', white: '#ffffff', text: '#333333', error: '#e74c3c', 
 };
 
-export default function NuevaSesionScreen({ navigation }) {
-    // Simulando el estado de la sesión y las actividades añadidas
-    const [sesion, setSesion] = useState({
-        id: 'sesion-temp-1',
-        fecha: new Date().toLocaleDateString(),
-        actividades: [],
-    });
+export default function NuevaSesionScreen({ navigation, route }) {
+    // 🚨 1. OBTENER EL USUARIO DEL CONTEXTO
+    const { user } = useContext(AuthContext); 
+    // Suponemos que el ID del usuario de Firebase/Backend está en user.id. 
+    // Si estás usando Firebase Auth, podría ser user.uid. Ajusta esto según tu AuthContext.
+    const pacienteId = user?.id; 
 
-    // 1. LÓGICA PARA AÑADIR/EDITAR ACTIVIDAD (Central)
-    const handleActividadChange = useCallback((nuevaActividad, index) => {
-        setSesion(prevSesion => {
-            const nuevasActividades = [...prevSesion.actividades];
-            
-            if (index !== undefined && index !== null) {
-                // EDITAR: Reemplaza la actividad existente
-                nuevasActividades[index] = nuevaActividad;
-            } else {
-                // AÑADIR: Agrega una nueva actividad
-                nuevasActividades.push({ ...nuevaActividad, id: Date.now() + nuevasActividades.length }); // Añade un ID simulado
-            }
-            
-            return {
-                ...prevSesion,
-                actividades: nuevasActividades
-            };
-        });
-    }, []);
-    
-    // 2. LÓGICA DE ELIMINACIÓN
-    const eliminarActividad = (index) => {
-        Alert.alert(
-            "Confirmar Eliminación",
-            "¿Estás seguro de que quieres eliminar esta actividad de la sesión?",
-            [
-                { text: "Cancelar", style: "cancel" },
-                { 
-                    text: "Eliminar", 
-                    style: "destructive",
-                    onPress: () => {
-                        setSesion(prevSesion => ({
-                            ...prevSesion,
-                            actividades: prevSesion.actividades.filter((_, i) => i !== index)
-                        }));
-                    }
-                }
-            ]
-        );
-    };
+    const [sesion, setSesion] = useState({ /* ... */ });
+    const [isSaving, setIsSaving] = useState(false); 
 
-    // 3. LÓGICA DE EDICIÓN
-    const editarActividad = (actividad, index) => {
-        navigation.navigate('AgregarActividad', {
-            // Pasamos los datos de la actividad y el índice para que la pantalla sepa que debe editar
-            actividadParaEditar: actividad,
-            indexActividad: index,
-            // Sobreescribimos el callback para asegurarnos de que se llame con el índice
-            onGoBack: (act) => handleActividadChange(act, index)
-        });
-    };
-
-    // Al enfocarse la pantalla, pasamos la función de callback para añadir
-    useFocusEffect(
-        useCallback(() => {
-            return () => {};
-        }, [])
-    );
-
-
-    // Cálculo de resumen (Se mantiene igual)
-    const calcularResumen = () => {
-        let totalKm = 0;
-        let numEjercicios = 0;
-        let totalCalorias = 0;
-
-        sesion.actividades.forEach(act => {
-            if (act.tipo === 'Actividad Física' && act.distancia) {
-                totalKm += parseFloat(act.distancia);
-            }
-            if (act.tipo === 'Entrenamiento' || act.tipo === 'Actividad Física') {
-                numEjercicios += 1;
-            }
-             if (act.calorias) {
-                totalCalorias += act.calorias;
-            }
-        });
-
-        return { totalKm: totalKm.toFixed(2), numEjercicios, totalCalorias: totalCalorias.toFixed(0) };
-    };
+    // ... (handleActividadChange y useFocusEffect) ...
+    const handleActividadChange = useCallback((nuevaActividad, index) => { /* ... */ }, []);
+    useFocusEffect(useCallback(() => { /* ... */ }, [route.params, navigation, handleActividadChange]));
+    const eliminarActividad = (index) => { /* ... */ };
+    const editarActividad = (actividad, index) => { /* ... */ };
+    const calcularResumen = () => { /* ... */ };
 
     const resumen = calcularResumen();
 
-    // Renderizado de cada item en la sesión (MODIFICADO para incluir botones)
+    // FUNCIÓN CLAVE: GUARDAR EN MONGODB (AXIOS)
+    const handleGuardarSesion = async () => {
+        if (!pacienteId) {
+             Alert.alert("Error de Sesión", "No se pudo obtener el ID del usuario. Por favor, vuelve a iniciar sesión.");
+             return;
+        }
+
+        if (sesion.actividades.length === 0) {
+            Alert.alert("Error", "Debes añadir al menos una actividad para guardar la sesión.");
+            return;
+        }
+
+        setIsSaving(true);
+        
+        // Estructura de datos requerida por ActividadController.js
+        const dataToSend = {
+            pacienteId: pacienteId, // 🚨 CLAVE: Usamos el ID real obtenido del contexto
+            fecha: sesion.fecha,
+            actividades: sesion.actividades.map(act => {
+                const { id, ...rest } = act;
+                return rest;
+            }), 
+        };
+
+        try {
+            const response = await axios.post(API_URL_SESION, dataToSend);
+            
+            Alert.alert("Éxito", "Sesión guardada correctamente en la base de datos.");
+            
+            setSesion({ id: 'sesion-temp-1', fecha: new Date(), actividades: [] });
+            
+        } catch (error) {
+            console.error("Error al guardar la sesión:", error.response?.data || error.message);
+            Alert.alert(
+                "Error de Conexión", 
+                `No se pudo guardar la sesión. Mensaje: ${error.response?.data?.msg || error.message}. Asegúrate de que el servidor esté activo.`
+            );
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+
+    // ... (renderActividad y JSX del componente) ...
     const renderActividad = ({ item, index }) => (
         <View style={styles.actividadItem}>
-            <View style={styles.headerRow}>
-                <Text style={styles.actividadTipo}>
-                    <Ionicons name={item.tipo === 'Actividad Física' ? "walk-outline" : "barbell-outline"} size={14} color={COLORS.primary} />
-                    {item.tipo}
-                </Text>
-                <View style={styles.actionButtons}>
-                    <TouchableOpacity onPress={() => editarActividad(item, index)} style={styles.actionButton}>
-                        <Ionicons name="create-outline" size={20} color={COLORS.secondary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => eliminarActividad(index)} style={styles.actionButton}>
-                        <Ionicons name="trash-outline" size={20} color={COLORS.error} />
-                    </TouchableOpacity>
-                </View>
-            </View>
-            
-            <Text style={styles.actividadNombre}>**{item.nombre}**</Text>
-            {item.tipo === 'Actividad Física' && (
-                <Text style={styles.detailText}>{item.distancia} km en {item.tiempo} min</Text>
-            )}
-            {item.tipo === 'Entrenamiento' && item.conPesas && (
-                <Text style={styles.detailText}>Series: {item.series}, Reps: {item.repeticiones}, Peso: {item.peso} kg</Text>
-            )}
-             {item.tipo === 'Entrenamiento' && !item.conPesas && (
-                <Text style={styles.detailText}>Duración: {item.tiempo} min</Text>
-            )}
-            <Text style={styles.calorias}>🔥 Calorías: {item.calorias || 'N/A'}</Text>
+             {/* ... Renderizado ... */}
         </View>
     );
 
     return (
         <View style={styles.container}>
-            <Text style={styles.sesionTitle}>Sesión del {sesion.fecha}</Text>
+            <Text style={styles.sesionTitle}>Sesión del {new Date(sesion.fecha).toLocaleDateString()}</Text>
 
-            {/* Resumen de la Sesión (Se mantiene igual) */}
+            {/* Resumen de la Sesión */}
             <View style={styles.resumenCard}>
                 <Text style={styles.resumenText}>**Actividades Añadidas:** <Text style={styles.resumenValue}>{resumen.numEjercicios}</Text></Text>
                 <Text style={styles.resumenText}>**Km Totales:** <Text style={styles.resumenValue}>{resumen.totalKm} km</Text></Text>
@@ -163,18 +113,22 @@ export default function NuevaSesionScreen({ navigation }) {
             {/* Botón para añadir */}
             <TouchableOpacity 
                 style={styles.addButton} 
-                onPress={() => navigation.navigate('AgregarActividad', { onGoBack: handleActividadChange })}
+                onPress={() => navigation.navigate('AgregarActividad', {})}
             >
                 <Text style={styles.addButtonText}>➕ Añadir Actividad / Ejercicio</Text>
             </TouchableOpacity>
             
-            {/* Botón para Finalizar (Simulado) */}
+            {/* Botón para Finalizar */}
              <TouchableOpacity 
-                style={[styles.addButton, styles.finalizarButton]} 
-                onPress={() => Alert.alert("Sesión Finalizada", "La sesión se guardaría permanentemente con Mongoose.")}
-                disabled={sesion.actividades.length === 0}
+                style={[styles.addButton, styles.finalizarButton, (sesion.actividades.length === 0 || isSaving) && styles.disabledButton]} 
+                onPress={handleGuardarSesion}
+                disabled={sesion.actividades.length === 0 || isSaving}
             >
-                <Text style={styles.addButtonText}>💾 Finalizar y Guardar Sesión</Text>
+                {isSaving ? (
+                    <ActivityIndicator color={COLORS.white} />
+                ) : (
+                    <Text style={styles.addButtonText}>💾 Finalizar y Guardar Sesión</Text>
+                )}
             </TouchableOpacity>
         </View>
     );

@@ -10,7 +10,6 @@ import LoginScreen from '../screens/Auth/LoginScreen';
 import RegisterScreen from '../screens/Auth/RegisterScreen';
 import HomeScreen from '../screens/Dashboard/HomeScreen';
 //Importando screens para el Tab Navigator
-import ActividadFisicaScreen from '../screens/ActividadFisica/ActividadFisicaScreen';
 import ConfiguracionesScreen from '../screens/Configuraciones/ConfiguracionesScreen';
 //import ForosScreen from '../screens/Foros/ForosScreen';
 import ForumScreen from '../screens/Forum/ForumScreen';

@@ -1,198 +1,257 @@
-// src/screens/ActividadFisica/AgregarActividadScreen.js (FINAL Y CORREGIDO)
-
-import React, { useState, useEffect } from 'react'; 
+import React, { useState, useEffect, useCallback } from 'react'; 
 import { 
     View, 
     Text, 
     StyleSheet, 
-    ScrollView, // <--- SCROLLVIEW PADRE
+    ScrollView, 
     TouchableOpacity, 
     TextInput, 
     Switch, 
     Alert,
-    // Eliminamos la importación de FlatList ya que la estamos reemplazando
+    ActivityIndicator, 
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker'; 
-import { Ionicons } from '@expo/vector-icons';
+import axios from 'axios'; 
+import { Ionicons } from '@expo/vector-icons'; // Importamos Ionicons
 
-// --- Paleta de Colores ---
-const COLORS = {
+// ⚠️ AJUSTA LA URL BASE DE TU BACKEND (usando la que definiste)
+const BASE_URL = 'http://192.168.1.148:5000/api/actividad';
+
+const COLORS = { 
     primary: '#2a8c4a',      
     secondary: '#64c27b',    
     light: '#9bfab0',        
     lighter: '#d0fdd7',      
     white: '#ffffff',        
     text: '#333333',         
-    error: '#e74c3c',        
-};
+    error: '#e74c3c', 
+}; 
 
 // Factores de estimación calórica (Kcal por unidad base - simplificado)
-const CALORIE_FACTORS = {
+const CALORIE_FACTORS = { 
     ACTIVITY_TIME: 6.0, 
-    RUNNING_DISTANCE: 65.0, 
-    WEIGHT_TRAINING_TIME: 8.0,
-    BODYWEIGHT_TIME: 7.0,
+    RUNNING_DISTANCE: 65.0, // Kcal por KM estimado (depende del peso del usuario)
+    WEIGHT_TRAINING_TIME: 8.0, // Kcal por minuto de entrenamiento con pesas
+    BODYWEIGHT_TIME: 7.0, // Kcal por minuto de calistenia/cuerpo
 };
 
-import { 
-    TIPOS_ACTIVIDAD_FISICA, 
-    ENTRENAMIENTOS_PREDEFINIDOS 
-} from '../../constants/ActividadData'; 
-
-// Lógica para combinar categorías sin pesas
-const getEjerciciosSinPesas = () => [
-    ...ENTRENAMIENTOS_PREDEFINIDOS['Fuerza - Peso Corporal (Calistenia)'],
-    ...ENTRENAMIENTOS_PREDEFINIDOS['Cardiovascular y HIIT'],
-    ...ENTRENAMIENTOS_PREDEFINIDOS['Movilidad, Core y Estiramientos'],
-    ...ENTRENAMIENTOS_PREDEFINIDOS['Rendimiento Específico'],
-    ...ENTRENAMIENTOS_PREDEFINIDOS['Rehabilitación / Terapia Física'],
-].sort();
-
-// Lógica para combinar categorías con pesas
-const getEjerciciosConPesas = () => [
-    ...ENTRENAMIENTOS_PREDEFINIDOS['Fuerza - Tren Superior (Pesas)'],
-    ...ENTRENAMIENTOS_PREDEFINIDOS['Fuerza - Tren Inferior (Pesas)'],
-].sort();
-
+// ➡️ FUNCIÓN DE CÁLCULO DE CALORÍAS (Fuera del componente para evitar recreación innecesaria)
+const calculateApproxCalories = (tipoRegistro, currentTipoActividad, currentDistancia, currentTime, currentEsConPesas) => {
+    let baseCalories = 0;
+    const distanceVal = parseFloat(currentDistancia) || 0;
+    const timeVal = parseFloat(currentTime) || 0;
+    
+    if (tipoRegistro === 'Actividad Física') {
+        if (timeVal > 0) {
+            if (['correr', 'trotar', 'ciclismo_exterior'].includes(currentTipoActividad) && distanceVal > 0) {
+                 // Usa distancia para ejercicios de recorrido
+                 baseCalories = distanceVal * CALORIE_FACTORS.RUNNING_DISTANCE; 
+            } else {
+                // Usa tiempo para otros ejercicios de AF
+                baseCalories = timeVal * CALORIE_FACTORS.ACTIVITY_TIME;
+            }
+        }
+    } else { // Entrenamiento
+        if (timeVal > 0) {
+            if (currentEsConPesas) {
+                baseCalories = timeVal * CALORIE_FACTORS.WEIGHT_TRAINING_TIME;
+            } else {
+                baseCalories = timeVal * CALORIE_FACTORS.BODYWEIGHT_TIME;
+            }
+        }
+    }
+    return Math.round(baseCalories);
+};
 
 export default function AgregarActividadScreen({ navigation, route }) {
-    const { onGoBack } = route.params;
+    // Parámetros de edición o adición
+    // Se añade un valor por defecto seguro para route.params
+    const { actividadParaEditar = {}, indexActividad } = route.params || {};
+    const isEditing = indexActividad !== undefined;
 
-    const [tipoRegistro, setTipoRegistro] = useState('Actividad Física'); 
-    const [tipoActividad, setTipoActividad] = useState(TIPOS_ACTIVIDAD_FISICA[0].value);
-    const [distancia, setDistancia] = useState('');
-    const [tiempo, setTiempo] = useState(''); 
-    const [esConPesas, setEsConPesas] = useState(false);
-    const [ejercicioSeleccionado, setEjercicioSeleccionado] = useState('');
-    const [series, setSeries] = useState('');
-    const [repeticiones, setRepeticiones] = useState('');
-    const [peso, setPeso] = useState(''); 
+    // --- ESTADOS PARA LA DATA DEL BACKEND ---
+    const [tiposActividad, setTiposActividad] = useState([]);
+    const [entrenamientosPredefinidos, setEntrenamientosPredefinidos] = useState({});
+    const [isLoadingData, setIsLoadingData] = useState(true);
+
+    // --- ESTADOS DEL FORMULARIO ---
+    const [tipoRegistro, setTipoRegistro] = useState(actividadParaEditar.tipo || 'Actividad Física'); 
+    const isActivity = tipoRegistro === 'Actividad Física';
+    
+    // Actividad Física
+    const [tipoActividad, setTipoActividad] = useState(actividadParaEditar.tipoActividad || '');
+    const [distancia, setDistancia] = useState(actividadParaEditar.distancia?.toString() || '');
+    
+    // Entrenamiento
+    const [esConPesas, setEsConPesas] = useState(actividadParaEditar.conPesas ?? false);
+    const [ejercicioSeleccionado, setEjercicioSeleccionado] = useState(actividadParaEditar.nombre || '');
     const [busquedaEjercicio, setBusquedaEjercicio] = useState(''); 
-    const [caloriasManual, setCaloriasManual] = useState('');
+    const [series, setSeries] = useState(actividadParaEditar.series?.toString() || '');
+    const [repeticiones, setRepeticiones] = useState(actividadParaEditar.repeticiones?.toString() || '');
+    const [peso, setPeso] = useState(actividadParaEditar.peso?.toString() || ''); 
+    
+    // Comunes
+    const [tiempo, setTiempo] = useState(actividadParaEditar.tiempo?.toString() || ''); // Usado en AF y Entrenamiento sin pesas
+    const [caloriasManual, setCaloriasManual] = useState(actividadParaEditar.calorias?.toString() || '');
     const [caloriasCalculadas, setCaloriasCalculadas] = useState(0);
 
-    // --- LÓGICA DE CÁLCULO Y FILTRADO (Se mantiene igual) ---
-    const calculateApproxCalories = (currentTipoActividad, currentDistancia, currentTime, currentEsConPesas) => {
-        let baseCalories = 0;
-        const distanceVal = parseFloat(currentDistancia) || 0;
-        const timeVal = parseFloat(currentTime) || 0;
-        
-        if (tipoRegistro === 'Actividad Física') {
-            if (timeVal > 0) {
-                if (['correr', 'trotar'].includes(currentTipoActividad) && distanceVal > 0) {
-                     baseCalories = distanceVal * CALORIE_FACTORS.RUNNING_DISTANCE;
-                } else {
-                    baseCalories = timeVal * CALORIE_FACTORS.ACTIVITY_TIME;
-                }
-            }
-        } else { 
-            if (timeVal > 0) {
-                if (currentEsConPesas) {
-                    baseCalories = timeVal * CALORIE_FACTORS.WEIGHT_TRAINING_TIME;
-                } else {
-                    baseCalories = timeVal * CALORIE_FACTORS.BODYWEIGHT_TIME;
-                }
-            }
-        }
-        return Math.round(baseCalories);
-    };
-
+    // --- LÓGICA DE CARGA DE DATOS DESDE EL BACKEND ---
     useEffect(() => {
-        const calculated = calculateApproxCalories(tipoActividad, distancia, tiempo, esConPesas);
-        setCaloriasCalculadas(calculated);
-    }, [tipoRegistro, tipoActividad, distancia, tiempo, esConPesas]);
+        const fetchActividadData = async () => {
+            try {
+                const response = await axios.get(`${BASE_URL}/catalogo`); // LLAMADA AL BACKEND
+                const { TIPOS_ACTIVIDAD_FISICA, ENTRENAMIENTOS_PREDEFINIDOS } = response.data;
+                
+                setTiposActividad(TIPOS_ACTIVIDAD_FISICA);
+                setEntrenamientosPredefinidos(ENTRENAMIENTOS_PREDEFINIDOS);
 
-    const getCaloriasValue = () => caloriasManual ? caloriasManual : (caloriasCalculadas > 0 ? caloriasCalculadas.toString() : '');
-    
-    const getEjerciciosBase = () => esConPesas ? getEjerciciosConPesas() : getEjerciciosSinPesas();
-    
-    const ejerciciosFiltrados = getEjerciciosBase().filter(ej => 
-        ej.toLowerCase().includes(busquedaEjercicio.toLowerCase())
-    );
-    
-    const handleGuardar = () => {
-        // ... (Lógica de handleGuardar se mantiene igual)
-        const caloriasFinal = getCaloriasValue();
-        let nuevoRegistro = {
-            tipo: tipoRegistro,
-            calorias: caloriasFinal ? parseFloat(caloriasFinal) : null,
-            fecha: new Date().toISOString(),
+                // Inicializar tipoActividad si es nuevo registro o edición sin valor
+                if (!tipoActividad && TIPOS_ACTIVIDAD_FISICA.length > 0) {
+                   setTipoActividad(actividadParaEditar.tipoActividad || TIPOS_ACTIVIDAD_FISICA[0].value);
+                }
+
+            } catch (error) {
+                console.error("Error al cargar el catálogo de actividades:", error);
+                // Si falla, usa un valor vacío para que la app no se rompa (aunque no tendrá datos)
+                setTiposActividad([]); 
+                setEntrenamientosPredefinidos({});
+                Alert.alert("Error", "No se pudo cargar el catálogo de actividades. Inténtalo más tarde.");
+            } finally {
+                setIsLoadingData(false);
+            }
         };
 
-         if (tipoRegistro === 'Actividad Física') {
-             if (!tipoActividad || !distancia || !tiempo) {
-                Alert.alert('Error', 'Por favor, complete todos los campos de Actividad Física.');
-                return;
-            }
-            nuevoRegistro = {
-                ...nuevoRegistro,
-                nombre: TIPOS_ACTIVIDAD_FISICA.find(t => t.value === tipoActividad).label,
-                tipoActividad: tipoActividad,
-                distancia: parseFloat(distancia),
-                tiempo: parseFloat(tiempo), 
-            };
-        } else { 
-            if (!ejercicioSeleccionado) {
-                Alert.alert('Error', 'Por favor, seleccione un ejercicio de entrenamiento.');
-                return;
-            }
-            
-            nuevoRegistro = {
-                ...nuevoRegistro,
-                nombre: ejercicioSeleccionado,
-                conPesas: esConPesas,
-            };
-            
-            if (esConPesas) {
-                if (!series || !repeticiones || !peso) {
-                    Alert.alert('Error', 'Por favor, complete series, repeticiones y peso (kg).');
-                    return;
-                }
-                nuevoRegistro = {
-                    ...nuevoRegistro,
-                    series: parseInt(series),
-                    repeticiones: parseInt(repeticiones),
-                    peso: parseFloat(peso),
-                };
-            } else { 
-                if (!tiempo) {
-                     Alert.alert('Error', 'Por favor, ingrese el tiempo de duración.');
-                    return;
-                }
-                nuevoRegistro = {
-                    ...nuevoRegistro,
-                    tiempo: parseFloat(tiempo), 
-                };
-            }
-        }
+        fetchActividadData();
+    }, []); // Se ejecuta solo al montar
+
+    // --- LÓGICA DE CÁLCULO DE CALORÍAS AUTOMÁTICO ---
+    useEffect(() => {
+        // Recalcular calorías cuando cambian los valores que afectan el cálculo
+        const calculated = calculateApproxCalories(
+            tipoRegistro, 
+            tipoActividad, 
+            distancia, 
+            tiempo, 
+            esConPesas
+        );
+        setCaloriasCalculadas(calculated);
+    }, [tipoRegistro, tipoActividad, distancia, tiempo, esConPesas]);
+    
+    // Filtro de ejercicios por búsqueda (usa la data cargada del backend)
+    const ejerciciosFiltrados = Object.values(entrenamientosPredefinidos)
+        .flat()
+        .filter(ej => 
+            ej.toLowerCase().includes(busquedaEjercicio.toLowerCase())
+        );
+
+    // Obtener valor de calorías
+    const getCaloriasValue = () => caloriasManual ? caloriasManual : (caloriasCalculadas > 0 ? caloriasCalculadas.toString() : '');
+    
+    // ➡️ LÓGICA DE GUARDAR: Envía la actividad de vuelta a NuevaSesionScreen
+    const handleGuardar = () => {
+        const caloriasFinal = getCaloriasValue();
         
-        onGoBack(nuevoRegistro); 
-        navigation.goBack(); 
+        // 1. Validaciones mínimas
+        if (!caloriasFinal || parseFloat(caloriasFinal) <= 0) {
+            Alert.alert('Error', 'Las calorías son un campo obligatorio.');
+            return;
+        }
+
+        let nuevoRegistro = {
+            tipo: tipoRegistro,
+            calorias: parseFloat(caloriasFinal),
+            nombre: '', // Se establece más abajo
+        };
+
+        if (tipoRegistro === 'Actividad Física') {
+             if (!tipoActividad || !distancia || !tiempo) {
+                 Alert.alert('Error', 'Por favor, complete todos los campos de Actividad Física (Tipo, Distancia y Tiempo).');
+                 return;
+             }
+             nuevoRegistro = {
+                 ...nuevoRegistro,
+                 nombre: tiposActividad.find(t => t.value === tipoActividad)?.label || tipoActividad, 
+                 tipoActividad: tipoActividad,
+                 distancia: parseFloat(distancia),
+                 tiempo: parseFloat(tiempo), 
+             };
+         } else { // Entrenamiento
+             if (!ejercicioSeleccionado) {
+                 Alert.alert('Error', 'Por favor, seleccione un ejercicio de entrenamiento.');
+                 return;
+             }
+             
+             nuevoRegistro = {
+                 ...nuevoRegistro,
+                 nombre: ejercicioSeleccionado,
+                 conPesas: esConPesas,
+             };
+             
+             if (esConPesas) {
+                 if (!series || !repeticiones || !peso) {
+                     Alert.alert('Error', 'Por favor, complete series, repeticiones y peso (kg).');
+                     return;
+                 }
+                 nuevoRegistro = {
+                     ...nuevoRegistro,
+                     series: parseInt(series),
+                     repeticiones: parseInt(repeticiones),
+                     peso: parseFloat(peso),
+                     tiempo: null, // Si es con pesas, el tiempo es opcional
+                 };
+             } else { // Sin Pesas (Calistenia, HIIT, Core)
+                 if (!tiempo) {
+                      Alert.alert('Error', 'Por favor, ingrese el tiempo de duración.');
+                      return;
+                 }
+                 nuevoRegistro = {
+                     ...nuevoRegistro,
+                     tiempo: parseFloat(tiempo), 
+                     series: null, repeticiones: null, peso: null,
+                 };
+             }
+         }
+        
+        // Pasamos la nueva actividad y el índice de vuelta por navigation params
+        navigation.navigate('NuevaSesion', { 
+            nuevaActividad: nuevoRegistro, 
+            indexActividad: isEditing ? indexActividad : undefined 
+        });
     };
 
+    // --- RENDERIZADO CONDICIONAL DE CARGA ---
+    if (isLoadingData) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+                <Text style={{ marginTop: 10, color: COLORS.text }}>Cargando catálogo de ejercicios...</Text>
+            </View>
+        );
+    }
+    
+    // --- RENDERIZADO DEL FORMULARIO PRINCIPAL ---
     return (
-        // SCROLLVIEW PADRE: Permite desplazar todo el formulario
         <ScrollView style={styles.container}>
-            <Text style={styles.header}>Seleccionar Tipo de Registro</Text>
+            <Text style={styles.header}>{isEditing ? 'Editar Actividad' : 'Agregar Nueva Actividad'}</Text>
             
-            {/* Toggle Actividad Física / Entrenamiento (Se mantiene igual) */}
+            {/* --- Controles de Toggle Tipo de Registro --- */}
             <View style={styles.toggleContainer}>
-                <TouchableOpacity
-                    style={[styles.toggleButton, tipoRegistro === 'Actividad Física' && styles.toggleActive]}
-                    onPress={() => { setTipoRegistro('Actividad Física'); setEjercicioSeleccionado(''); setBusquedaEjercicio(''); }}
+                <TouchableOpacity 
+                    style={[styles.toggleButton, isActivity && styles.toggleActive]} 
+                    onPress={() => setTipoRegistro('Actividad Física')}
                 >
-                    <Text style={[styles.toggleText, tipoRegistro === 'Actividad Física' && styles.toggleTextActive]}>🏃‍♀️ Actividad Física</Text>
+                    <Text style={[styles.toggleText, isActivity && styles.toggleTextActive]}>Actividad Física</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.toggleButton, tipoRegistro === 'Entrenamiento' && styles.toggleActive]}
-                    onPress={() => { setTipoRegistro('Entrenamiento'); setTipoActividad(TIPOS_ACTIVIDAD_FISICA[0].value); }}
+                <TouchableOpacity 
+                    style={[styles.toggleButton, !isActivity && styles.toggleActive]} 
+                    onPress={() => setTipoRegistro('Entrenamiento')}
                 >
-                    <Text style={[styles.toggleText, tipoRegistro === 'Entrenamiento' && styles.toggleTextActive]}>💪 Entrenamiento</Text>
+                    <Text style={[styles.toggleText, !isActivity && styles.toggleTextActive]}>Entrenamiento</Text>
                 </TouchableOpacity>
             </View>
 
-            {/* --- Formulario de Actividad Física (Se mantiene igual) --- */}
-            {tipoRegistro === 'Actividad Física' && (
+            {/* --- Formulario de Actividad Física (AF) --- */}
+            {isActivity && (
                 <View style={styles.formSection}>
                     <Text style={styles.label}>Tipo de Actividad</Text>
                     <View style={styles.pickerContainer}>
@@ -202,38 +261,61 @@ export default function AgregarActividadScreen({ navigation, route }) {
                             style={styles.picker}
                             itemStyle={{ color: COLORS.text }}
                         >
-                            {TIPOS_ACTIVIDAD_FISICA.map(t => (
+                            {tiposActividad.map(t => (
                                 <Picker.Item key={t.value} label={t.label} value={t.value} />
                             ))}
                         </Picker>
                     </View>
-                    
+
                     <Text style={styles.label}>Distancia (km)</Text>
-                    <TextInput style={styles.input} keyboardType="numeric" value={distancia} onChangeText={setDistancia} placeholder="Ej: 5.5" placeholderTextColor="#999"/>
+                    <TextInput
+                        style={styles.input}
+                        keyboardType="numeric"
+                        placeholder="Ej: 5.0"
+                        value={distancia}
+                        onChangeText={setDistancia}
+                    />
+                    
                     <Text style={styles.label}>Tiempo (minutos)</Text>
-                    <TextInput style={styles.input} keyboardType="numeric" value={tiempo} onChangeText={setTiempo} placeholder="Ej: 30" placeholderTextColor="#999"/>
+                    <TextInput
+                        style={styles.input}
+                        keyboardType="numeric"
+                        placeholder="Ej: 30"
+                        value={tiempo}
+                        onChangeText={setTiempo}
+                    />
                 </View>
             )}
 
             {/* --- Formulario de Entrenamiento --- */}
-            {tipoRegistro === 'Entrenamiento' && (
+            {!isActivity && (
                 <View style={styles.formSection}>
-                    {/* Filtro de Pesas (Se mantiene igual) */}
+                    
+                    {/* Filtro de Pesas */}
                     <View style={styles.switchRow}>
-                        <Text style={styles.label}>Con Pesas/Resistencia</Text>
-                        <Switch onValueChange={(value) => { setEsConPesas(value); setEjercicioSeleccionado(''); setBusquedaEjercicio(''); }} value={esConPesas} trackColor={{ false: COLORS.light, true: COLORS.secondary }} thumbColor={esConPesas ? COLORS.primary : COLORS.white} />
+                        <Text style={styles.label}>Entrenamiento con Pesas/Máquinas</Text>
+                        <Switch
+                            trackColor={{ false: COLORS.light, true: COLORS.secondary }}
+                            thumbColor={esConPesas ? COLORS.primary : COLORS.white}
+                            onValueChange={setEsConPesas}
+                            value={esConPesas}
+                        />
                     </View>
                     
-                    {/* Buscador de Ejercicio (Se mantiene igual) */}
+                    {/* Buscador de Ejercicio */}
                     <Text style={styles.label}>Buscar Ejercicio</Text>
-                    <TextInput style={styles.input} value={busquedaEjercicio} onChangeText={setBusquedaEjercicio} placeholder="Escribe el nombre del ejercicio..." placeholderTextColor="#999"/>
-
-                    {/* Lista de Resultados de Búsqueda con Scroll Interno (CORREGIDO) */}
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Ej: Sentadillas, Press de banca, Yoga..."
+                        value={busquedaEjercicio}
+                        onChangeText={setBusquedaEjercicio}
+                    />
+                    
+                    {/* Lista de Resultados de Búsqueda con Scroll Interno */}
                     <View style={styles.chipsContainer}>
-                        {/* 🟢 USAMOS SCROLLVIEW SIMPLE CON PROPIEDADES DE SCROLL ANIDADO */}
                         <ScrollView
                             nestedScrollEnabled={true} 
-                            contentContainerStyle={styles.rowWrapper} // Aplica el flex-wrap a los elementos
+                            contentContainerStyle={styles.rowWrapper} 
                             showsVerticalScrollIndicator={true}
                         >
                             {ejerciciosFiltrados.length > 0 ? (
@@ -258,55 +340,66 @@ export default function AgregarActividadScreen({ navigation, route }) {
                         </ScrollView>
                     </View>
                     
-                    {/* Mostrar Ejercicio Seleccionado y Campos Específicos (Se mantiene igual) */}
+                    {/* Mostrar Ejercicio Seleccionado */}
                     {ejercicioSeleccionado ? (
                         <View style={styles.selectedView}>
-                            <Text style={styles.selectedLabel}>**Ejercicio Seleccionado:**</Text>
+                            <Text style={styles.selectedLabel}>Seleccionado:</Text>
                             <Text style={styles.selectedValueText}>{ejercicioSeleccionado}</Text>
                         </View>
                     ) : (
                         <View style={styles.placeholderSelectedView}>
-                            <Text style={styles.placeholderText}>Selecciona un ejercicio de la lista superior.</Text>
+                            <Text style={styles.placeholderText}>Seleccione un ejercicio de la lista superior.</Text>
                         </View>
                     )}
 
-
+                    {/* Campos Específicos para Entrenamiento */}
                     <View style={styles.detailInputs}>
                         {esConPesas ? (
+                            // Campos para Entrenamiento CON PESAS
                             <>
                                 <Text style={styles.label}>Series</Text>
-                                <TextInput style={styles.input} keyboardType="numeric" value={series} onChangeText={setSeries} placeholder="Ej: 4" placeholderTextColor="#999"/>
-                                <Text style={styles.label}>Repeticiones</Text>
-                                <TextInput style={styles.input} keyboardType="numeric" value={repeticiones} onChangeText={setRepeticiones} placeholder="Ej: 12" placeholderTextColor="#999"/>
+                                <TextInput style={styles.input} keyboardType="numeric" placeholder="Ej: 3" value={series} onChangeText={setSeries} />
+                                
+                                <Text style={styles.label}>Repeticiones por Serie</Text>
+                                <TextInput style={styles.input} keyboardType="numeric" placeholder="Ej: 10" value={repeticiones} onChangeText={setRepeticiones} />
+                                
                                 <Text style={styles.label}>Peso (kg)</Text>
-                                <TextInput style={styles.input} keyboardType="numeric" value={peso} onChangeText={setPeso} placeholder="Ej: 20" placeholderTextColor="#999"/>
+                                <TextInput style={styles.input} keyboardType="numeric" placeholder="Ej: 20.5" value={peso} onChangeText={setPeso} />
                             </>
                         ) : (
-                            <View>
+                            // Campos para Entrenamiento SIN PESAS (Usa solo tiempo)
+                            <>
                                 <Text style={styles.label}>Tiempo (minutos)</Text>
-                                <TextInput style={styles.input} keyboardType="numeric" value={tiempo} onChangeText={setTiempo} placeholder="Ej: 30" placeholderTextColor="#999"/>
-                            </View>
+                                <TextInput style={styles.input} keyboardType="numeric" placeholder="Ej: 45" value={tiempo} onChangeText={setTiempo} />
+                                <Text style={styles.suggestionText}>Usado para Calistenia, HIIT, Yoga, Core, etc.</Text>
+                            </>
                         )}
                     </View>
                 </View>
             )}
 
-            {/* Campo común para Calorías (Se mantiene igual) */}
-            <Text style={styles.label}>Calorías Aprox. Gastadas {caloriasCalculadas > 0 && `(Est: ${caloriasCalculadas})`}</Text>
-            <TextInput
-                style={styles.input}
-                keyboardType="numeric"
-                value={getCaloriasValue()} 
-                onChangeText={text => setCaloriasManual(text)} 
-                placeholder="Ej: 300"
-                placeholderTextColor="#999"
-            />
-            {caloriasCalculadas > 0 && !caloriasManual && (
-                <Text style={styles.suggestionText}>El valor se auto-calculó. Puedes modificarlo si lo deseas.</Text>
-            )}
+            {/* --- Sección Común de Calorías --- */}
+            <View style={styles.formSection}>
+                <Text style={styles.label}>Calorías Estimadas</Text>
+                {caloriasCalculadas > 0 && (
+                    <Text style={[styles.selectedValueText, { color: COLORS.secondary, marginBottom: 10 }]}>
+                       Aprox. **{caloriasCalculadas} Kcal**
+                    </Text>
+                )}
+                
+                <Text style={styles.label}>Calorías (Manual / Final)</Text>
+                <TextInput
+                    style={styles.input}
+                    keyboardType="numeric"
+                    placeholder={`Ingrese manualmente o use ${caloriasCalculadas} Kcal`}
+                    value={caloriasManual}
+                    onChangeText={setCaloriasManual}
+                />
+            </View>
 
+            {/* --- Botón Guardar --- */}
             <TouchableOpacity style={styles.saveButton} onPress={handleGuardar}>
-                <Text style={styles.saveButtonText}>Guardar en Sesión</Text>
+                <Text style={styles.saveButtonText}>{isEditing ? 'Actualizar Actividad' : 'Guardar en Sesión'}</Text>
             </TouchableOpacity>
         </ScrollView>
     );
@@ -330,25 +423,23 @@ const styles = StyleSheet.create({
     saveButton: { backgroundColor: COLORS.primary, padding: 15, borderRadius: 8, marginTop: 20, marginBottom: 50, elevation: 3 },
     saveButtonText: { color: COLORS.white, fontSize: 18, fontWeight: 'bold', textAlign: 'center' },
     
-    // --- ESTILOS MODIFICADOS PARA EL SCROLL INTERNO ---
+    // --- ESTILOS PARA EL SCROLL INTERNO ---
     chipsContainer: {
         marginTop: 10,
         marginBottom: 15,
-        maxHeight: 220, // Limita la altura (4 filas)
+        maxHeight: 220, // Limita la altura 
         borderWidth: 1,
         borderColor: COLORS.light,
         borderRadius: 8,
         padding: 5,
         backgroundColor: COLORS.white,
     },
-    // Contenedor que maneja el flex-wrap de los chips
     rowWrapper: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         justifyContent: 'space-between',
         padding: 5,
     },
-    // Ajustamos el chip para que ocupe el 48% y se ajuste en dos columnas con el flex-wrap
     chip: {
         width: '48%', 
         paddingVertical: 10,
@@ -358,7 +449,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: COLORS.secondary,
         alignItems: 'center',
-        marginBottom: 8, // Espacio entre filas
+        marginBottom: 8, 
     },
     chipSelected: {
         backgroundColor: COLORS.primary,
@@ -421,4 +512,11 @@ const styles = StyleSheet.create({
         marginTop: 5,
         fontStyle: 'italic',
     },
+    // Estilo para el contenedor de carga
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: COLORS.white,
+    }
 });
