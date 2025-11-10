@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -15,8 +15,10 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Layout from '../../components/Layout';
 import { recordatoriosService } from '../../services/recordatoriosService';
+import { AuthContext } from '../../context/AuthContext';
 
 const RemindersScreen = () => {
+  const { user } = useContext(AuthContext);
   const [reminders, setReminders] = useState([]);
   const [todayReminders, setTodayReminders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -32,13 +34,19 @@ const RemindersScreen = () => {
     hora: '08:00',
     dias: [],
     activo: true,
-    userId: '-OdER-8T0_WKhxrfi5HY',
+    userId: user?.uid || '', // Usar el UID del usuario en sesión
   });
 
   const daysOfWeek = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
   // Cargar recordatorios
   const cargarRecordatorios = async () => {
+    // Validar que el usuario esté autenticado
+    if (!user?.uid) {
+      Alert.alert('Error', 'No se pudo obtener la información del usuario');
+      return;
+    }
+
     try {
       setLoading(true);
       
@@ -74,6 +82,16 @@ const RemindersScreen = () => {
   useEffect(() => {
     cargarRecordatorios();
   }, []);
+
+  // Actualizar userId cuando el usuario cambie
+  useEffect(() => {
+    if (user?.uid) {
+      setNewReminder(prev => ({
+        ...prev,
+        userId: user.uid
+      }));
+    }
+  }, [user?.uid]);
 
   const toggleDay = (day) => {
     const updatedDays = newReminder.dias.includes(day)
@@ -114,7 +132,7 @@ const RemindersScreen = () => {
       hora: '08:00',
       dias: [],
       activo: true,
-      userId: '-OdER-8T0_WKhxrfi5HY',
+      userId: user?.uid || '', // Usar el UID del usuario en sesión
     });
   };
 
