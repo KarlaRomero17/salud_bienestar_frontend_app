@@ -36,6 +36,7 @@ const RemindersScreen = () => {
     activo: true,
     userId: user?.uid || '', // Usar el UID del usuario en sesión
   });
+  console.log(user?.uid);
 
   const daysOfWeek = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 

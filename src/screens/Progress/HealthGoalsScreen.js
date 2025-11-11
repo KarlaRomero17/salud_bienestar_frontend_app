@@ -1,5 +1,4 @@
-// HealthGoalsScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -14,7 +13,8 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Layout from '../../components/Layout';
-import { goalAPI } from '../../services/api';
+import { goalService } from '../../services/goalService'; // ✅ Usar el servicio corregido
+import { AuthContext } from '../../context/AuthContext';
 
 const HealthGoalsScreen = () => {
   const [goals, setGoals] = useState([]);
@@ -22,75 +22,51 @@ const HealthGoalsScreen = () => {
   const [dateModalVisible, setDateModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [editingGoal, setEditingGoal] = useState(null);
+  const { user } = useContext(AuthContext);
   
-  const [newGoal, setNewGoal] = useState({
-    title: '',
-    type: 'loss',
-    targetWeight: '',
-    unit: 'kg',
-    targetDate: '',
-  });
-
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
-  const [selectedDay, setSelectedDay] = useState(new Date().getDate());
-
-  const goalTypes = [
-    { id: 'loss', name: 'Pérdida de peso', icon: 'fitness-center' },
-    { id: 'gain', name: 'Aumento masa muscular', icon: 'directions-run' },
-    { id: 'maintain', name: 'Mantener peso', icon: 'monitor-weight' },
-  ];
-
-  const unitTypes = [
-    { id: 'kg', name: 'kg' },
-    { id: 'lb', name: 'lb' },
-  ];
-
-  // Generar arrays para años, meses y días
-  const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + i);
-  const months = [
-    { value: 0, name: 'Enero' }, { value: 1, name: 'Febrero' }, { value: 2, name: 'Marzo' },
-    { value: 3, name: 'Abril' }, { value: 4, name: 'Mayo' }, { value: 5, name: 'Junio' },
-    { value: 6, name: 'Julio' }, { value: 7, name: 'Agosto' }, { value: 8, name: 'Septiembre' },
-    { value: 9, name: 'Octubre' }, { value: 10, name: 'Noviembre' }, { value: 11, name: 'Diciembre' }
-  ];
-
-  const getDaysInMonth = (year, month) => {
-    return new Date(year, month + 1, 0).getDate();
-  };
-
-  const days = Array.from({ length: getDaysInMonth(selectedYear, selectedMonth) }, (_, i) => i + 1);
-
-  // Cargar objetivos al montar el componente
-  useEffect(() => {
-    loadGoals();
-  }, []);
+  // ... (resto del código se mantiene igual)
 
   const loadGoals = async () => {
+    const userId = user?.uid;
+    
+    if (!userId) {
+      console.log('❌ userId no disponible');
+      return;
+    }
+
     try {
       setLoading(true);
-      const response = await goalAPI.getGoals();
-      if (response.data.success) {
-        setGoals(response.data.data);
+      console.log('🔍 Cargando objetivos para userId:', userId);
+      
+      // ✅ Usar el servicio corregido
+      const response = await goalService.obtenerTodos(userId);
+      console.log('📦 Respuesta completa del servidor:', response);
+      
+      if (response.success) {
+        setGoals(response.data || []);
+        console.log('✅ Objetivos cargados del servidor:', response.data?.length || 0);
+        
+        if (!response.data || response.data.length === 0) {
+          console.log('📭 No hay objetivos en la base de datos');
+        }
+      } else {
+        console.log('❌ El servidor respondió con success: false');
+        setGoals([]);
       }
     } catch (error) {
-      console.error('Error cargando objetivos:', error);
-      Alert.alert('Error', 'No se pudieron cargar los objetivos');
+      console.error('💥 Error cargando objetivos:', error.message);
+      
+      setGoals([]);
+      
+      Alert.alert(
+        'Error de conexión', 
+        'No se pudieron cargar los objetivos. Verifica tu conexión al servidor.'
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const resetForm = () => {
-    setNewGoal({
-      title: '',
-      type: 'loss',
-      targetWeight: '',
-      unit: 'kg',
-      targetDate: '',
-    });
-    setEditingGoal(null);
-    const today = new Date();
     setSelectedYear(today.getFullYear());
     setSelectedMonth(today.getMonth());
     setSelectedDay(today.getDate());
@@ -106,7 +82,6 @@ const HealthGoalsScreen = () => {
       targetDate: goal.targetDate,
     });
     
-    // Establecer la fecha del objetivo en el picker
     const goalDate = new Date(goal.targetDate);
     setSelectedYear(goalDate.getFullYear());
     setSelectedMonth(goalDate.getMonth());
@@ -121,6 +96,11 @@ const HealthGoalsScreen = () => {
       return;
     }
 
+    if (!user?.uid) {
+      Alert.alert('Error', 'Usuario no identificado');
+      return;
+    }
+
     try {
       setLoading(true);
       const goalData = {
@@ -129,32 +109,40 @@ const HealthGoalsScreen = () => {
         targetWeight: parseFloat(newGoal.targetWeight),
         unit: newGoal.unit,
         targetDate: newGoal.targetDate,
+        userId: user.uid
       };
+
+      console.log('💾 Guardando objetivo:', goalData);
 
       let response;
       if (editingGoal) {
-        // Editar objetivo existente
         response = await goalAPI.updateGoal(editingGoal._id, goalData);
       } else {
-        // Crear nuevo objetivo
         response = await goalAPI.createGoal(goalData);
       }
 
+      console.log('✅ Respuesta guardar:', response.data);
+
       if (response.data.success) {
-        await loadGoals();
+        await loadGoals(); // Recargar los objetivos desde el servidor
         setModalVisible(false);
         resetForm();
         Alert.alert('Éxito', editingGoal ? 'Objetivo actualizado' : 'Objetivo creado');
       }
     } catch (error) {
-      console.error('Error guardando objetivo:', error);
-      Alert.alert('Error', 'No se pudo guardar el objetivo');
+      console.error('💥 Error guardando objetivo:', error);
+      Alert.alert('Error', 'No se pudo guardar el objetivo. Verifica tu conexión.');
     } finally {
       setLoading(false);
     }
   };
 
-  const deleteGoal = (goal) => {
+  const deleteGoal = async (goal) => {
+    if (!user?.uid) {
+      Alert.alert('Error', 'Usuario no identificado');
+      return;
+    }
+
     Alert.alert(
       'Eliminar Objetivo',
       `¿Estás seguro de que quieres eliminar "${goal.title}"?`,
@@ -166,9 +154,9 @@ const HealthGoalsScreen = () => {
           onPress: async () => {
             try {
               setLoading(true);
-              const response = await goalAPI.deleteGoal(goal._id);
+              const response = await goalAPI.deleteGoal(goal._id, user.uid);
               if (response.data.success) {
-                await loadGoals();
+                await loadGoals(); // Recargar los objetivos desde el servidor
                 Alert.alert('Éxito', 'Objetivo eliminado');
               }
             } catch (error) {
@@ -184,10 +172,16 @@ const HealthGoalsScreen = () => {
   };
 
   const updateProgress = async (goalId, progress) => {
+    if (!user?.uid) {
+      Alert.alert('Error', 'Usuario no identificado');
+      return;
+    }
+
     try {
-      const response = await goalAPI.updateProgress(goalId, progress);
+      console.log('🔄 Actualizando progreso:', goalId, progress);
+      const response = await goalAPI.updateProgress(goalId, progress, user.uid);
       if (response.data.success) {
-        await loadGoals();
+        await loadGoals(); // Recargar los objetivos desde el servidor
       }
     } catch (error) {
       console.error('Error actualizando progreso:', error);
@@ -231,13 +225,13 @@ const HealthGoalsScreen = () => {
             key={progress}
             style={[
               styles.progressButton,
-              goal.progress === progress && styles.progressButtonActive
+              goal.progress === progress && styles.progressButtonActive,
             ]}
             onPress={() => updateProgress(goal._id, progress)}
           >
             <Text style={[
               styles.progressButtonText,
-              goal.progress === progress && styles.progressButtonTextActive
+              goal.progress === progress && styles.progressButtonTextActive,
             ]}>
               {progress}%
             </Text>
@@ -332,6 +326,7 @@ const HealthGoalsScreen = () => {
       {loading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#2a8c4a" />
+          <Text style={styles.loadingText}>Cargando objetivos...</Text>
         </View>
       )}
 
@@ -347,6 +342,17 @@ const HealthGoalsScreen = () => {
             <Text style={styles.emptyStateText}>
               {loading ? 'Cargando...' : 'No tienes objetivos configurados'}
             </Text>
+            <TouchableOpacity 
+              style={styles.emptyStateButton}
+              onPress={() => {
+                resetForm();
+                setModalVisible(true);
+              }}
+            >
+              <Text style={styles.emptyStateButtonText}>
+                Crear primer objetivo
+              </Text>
+            </TouchableOpacity>
           </View>
         }
       />
@@ -356,7 +362,8 @@ const HealthGoalsScreen = () => {
         onPress={() => {
           resetForm();
           setModalVisible(true);
-        }}>
+        }}
+      >
         <Icon name="add" size={30} color="#ffffff" />
       </TouchableOpacity>
 
@@ -543,20 +550,49 @@ const HealthGoalsScreen = () => {
   );
 };
 
-// Agrega estos estilos al objeto de estilos existente:
 const styles = StyleSheet.create({
-  // ... tus estilos existentes ...
-  
-  loadingContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255,255,255,0.8)',
+  listContainer: {
+    padding: 20,
+    flexGrow: 1,
+  },
+  goalCard: {
+    backgroundColor: '#d0fdd7',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  goalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  goalIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#9bfab0',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000,
+    marginRight: 15,
+  },
+  goalInfo: {
+    flex: 1,
+  },
+  goalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2a8c4a',
+    marginBottom: 5,
+  },
+  goalTarget: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 2,
   },
   goalActions: {
     flexDirection: 'row',
@@ -597,8 +633,283 @@ const styles = StyleSheet.create({
   progressButtonTextActive: {
     color: '#ffffff',
   },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  progressBar: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+    marginRight: 10,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#2a8c4a',
+    borderRadius: 4,
+  },
+  progressText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#2a8c4a',
+    minWidth: 40,
+  },
+  addButton: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#64c27b',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '80%',
+  },
+  dateModalContent: {
+    maxHeight: '90%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2a8c4a',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 15,
+    fontSize: 16,
+    backgroundColor: '#f9f9f9',
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#666',
+    marginBottom: 10,
+  },
+  typeSelector: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  typeButton: {
+    width: '48%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#2a8c4a',
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  typeButtonActive: {
+    backgroundColor: '#2a8c4a',
+  },
+  typeButtonText: {
+    marginLeft: 8,
+    color: '#2a8c4a',
+    fontWeight: '500',
+  },
+  typeButtonTextActive: {
+    color: '#ffffff',
+  },
+  weightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  weightInput: {
+    flex: 1,
+    marginRight: 10,
+    marginBottom: 0,
+  },
+  unitSelector: {
+    flexDirection: 'row',
+    width: 120,
+  },
+  unitButton: {
+    flex: 1,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#2a8c4a',
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 2,
+  },
+  unitButtonActive: {
+    backgroundColor: '#2a8c4a',
+  },
+  unitButtonText: {
+    color: '#2a8c4a',
+    fontWeight: '500',
+  },
+  unitButtonTextActive: {
+    color: '#ffffff',
+  },
+  dateButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 15,
+    backgroundColor: '#f9f9f9',
+  },
+  dateButtonText: {
+    fontSize: 16,
+    color: '#000000',
+  },
+  dateButtonPlaceholder: {
+    fontSize: 16,
+    color: '#999',
+  },
+  datePickerContainer: {
+    flexDirection: 'row',
+    height: 200,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    backgroundColor: '#f9f9f9',
+  },
+  pickerColumn: {
+    flex: 1,
+  },
+  dayColumn: {
+    flex: 1,
+  },
+  monthColumn: {
+    flex: 1.5,
+  },
+  yearColumn: {
+    flex: 1,
+  },
+  pickerItem: {
+    padding: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerItemSelected: {
+    backgroundColor: '#2a8c4a',
+    borderRadius: 6,
+    margin: 2,
+  },
+  pickerItemText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  pickerItemTextSelected: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  selectedDatePreview: {
+    padding: 15,
+    backgroundColor: '#f0f8f0',
+    borderRadius: 8,
+    marginBottom: 15,
+    alignItems: 'center',
+  },
+  selectedDateText: {
+    fontSize: 16,
+    color: '#2a8c4a',
+    fontWeight: '500',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 15,
+    borderRadius: 8,
+    marginHorizontal: 5,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f0f0f0',
+  },
+  saveButton: {
+    backgroundColor: '#2a8c4a',
+  },
   saveButtonDisabled: {
     backgroundColor: '#cccccc',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontWeight: '500',
+  },
+  saveButtonText: {
+    color: '#ffffff',
+    fontWeight: '500',
+  },
+  emptyState: {
+    alignItems: 'center',
+    padding: 40,
+    justifyContent: 'center',
+    flex: 1,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  emptyStateButton: {
+    backgroundColor: '#2a8c4a',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  emptyStateButtonText: {
+    color: '#ffffff',
+    fontWeight: '500',
+    fontSize: 16,
+  },
+  loadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#2a8c4a',
   },
 });
 

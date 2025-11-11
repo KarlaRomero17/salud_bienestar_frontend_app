@@ -70,24 +70,6 @@ const HomeScreen = ({ navigation }) => {
         ))}
       </View>
 
-      {/* Sección de Herramientas Rápidas */}
-      <View style={styles.section}>
-        <SectionTitle title="Herramientas Rápidas" />
-        <View style={styles.quickToolsContainer}>
-          {quickTools.map((tool, index) => (
-            <View key={index} style={styles.quickToolWrapper}>
-              <PrimaryCard 
-                title={tool.title}
-                description={tool.description}
-                icon={tool.icon}
-                variant={tool.variant}
-                size={tool.size}
-                onPress={tool.onPress}
-              />
-            </View>
-          ))}
-        </View>
-      </View>
 
       {/* Sección de Estadísticas Rápidas */}
       <View style={styles.section}>
