@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import authService from '../services/authService';
 import firebaseAuth from '../firebaseAuth';
 import tokenManager from '../utils/tokenManager';
-import { getDatabase, ref, query, orderByChild, equalTo, get } from 'firebase/database';
+import { getDatabase, ref, get } from 'firebase/database';
 
 export const AuthContext = createContext();
 
@@ -15,26 +15,42 @@ export const AuthProvider = ({ children }) => {
   const [isNewUser, setIsNewUser] = useState(false);
 
   // Función para cargar el perfil completo del usuario desde Firebase
+  // SIN usar orderByChild (que requiere índice)
   const loadUserProfile = async (uid) => {
     try {
       const db = getDatabase();
       const usuariosRef = ref(db, 'usuarios');
       
-      // Buscar el usuario por idAuth (que es el uid de Firebase Auth)
-      const usuarioQuery = query(usuariosRef, orderByChild('idAuth'), equalTo(uid));
-      const snapshot = await get(usuarioQuery);
+      // Obtener todos los usuarios y filtrar en cliente
+      // Esto evita el error de índice no definido
+      const snapshot = await get(usuariosRef);
       
       if (snapshot.exists()) {
-        // Obtener el primer (y único) resultado
-        const userData = Object.values(snapshot.val())[0];
-        const userKey = Object.keys(snapshot.val())[0];
+        const allUsers = snapshot.val();
         
-        return {
-          firebaseKey: userKey, // Clave de Firebase Realtime Database
-          ...userData
-        };
+        // Buscar el usuario que tiene idAuth === uid
+        let userFound = null;
+        let userKey = null;
+        
+        for (const [key, userData] of Object.entries(allUsers)) {
+          if (userData.idAuth === uid) {
+            userFound = userData;
+            userKey = key;
+            break;
+          }
+        }
+        
+        if (userFound) {
+          return {
+            firebaseKey: userKey, // Clave de Firebase Realtime Database
+            ...userFound
+          };
+        } else {
+          console.warn('No se encontró el perfil del usuario en la base de datos');
+          return null;
+        }
       } else {
-        console.warn('No se encontró el perfil del usuario en la base de datos');
+        console.warn('No hay usuarios en la base de datos');
         return null;
       }
     } catch (error) {
@@ -138,29 +154,65 @@ export const AuthProvider = ({ children }) => {
         return { success: false, error: 'No hay usuario autenticado' };
       }
 
-      // Actualizar en Firebase Realtime Database
-      const db = getDatabase();
-      const usuariosRef = ref(db, 'usuarios');
-      const usuarioQuery = query(usuariosRef, orderByChild('idAuth'), equalTo(user.uid));
-      const snapshot = await get(usuarioQuery);
-      
-      if (snapshot.exists()) {
-        const userKey = Object.keys(snapshot.val())[0];
-        const userRef = ref(db, `usuarios/${userKey}`);
+      // Si ya tenemos la firebaseKey del usuario, úsala directamente
+      if (user.firebaseKey) {
+        const db = getDatabase();
+        const userRef = ref(db, `usuarios/${user.firebaseKey}`);
         
         // Actualizar en Firebase
         const { set } = await import('firebase/database');
-        const currentData = Object.values(snapshot.val())[0];
-        await set(userRef, { ...currentData, ...updates });
+        const snapshot = await get(userRef);
         
-        // Actualizar en el estado local
-        const updatedUser = { ...user, ...updates };
-        setUser(updatedUser);
+        if (snapshot.exists()) {
+          const currentData = snapshot.val();
+          await set(userRef, { ...currentData, ...updates });
+          
+          // Actualizar en el estado local
+          const updatedUser = { ...user, ...updates };
+          setUser(updatedUser);
+          
+          // Actualizar en AsyncStorage
+          await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+          
+          return { success: true, user: updatedUser };
+        }
+      }
+      
+      // Fallback: buscar el usuario sin índice
+      const db = getDatabase();
+      const usuariosRef = ref(db, 'usuarios');
+      const snapshot = await get(usuariosRef);
+      
+      if (snapshot.exists()) {
+        const allUsers = snapshot.val();
+        let userKey = null;
+        let currentData = null;
         
-        // Actualizar en AsyncStorage
-        await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+        // Buscar el usuario que tiene idAuth === user.uid
+        for (const [key, userData] of Object.entries(allUsers)) {
+          if (userData.idAuth === user.uid) {
+            userKey = key;
+            currentData = userData;
+            break;
+          }
+        }
         
-        return { success: true, user: updatedUser };
+        if (userKey && currentData) {
+          const userRef = ref(db, `usuarios/${userKey}`);
+          
+          // Actualizar en Firebase
+          const { set } = await import('firebase/database');
+          await set(userRef, { ...currentData, ...updates });
+          
+          // Actualizar en el estado local
+          const updatedUser = { ...user, ...updates, firebaseKey: userKey };
+          setUser(updatedUser);
+          
+          // Actualizar en AsyncStorage
+          await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+          
+          return { success: true, user: updatedUser };
+        }
       }
       
       return { success: false, error: 'Usuario no encontrado en la base de datos' };
