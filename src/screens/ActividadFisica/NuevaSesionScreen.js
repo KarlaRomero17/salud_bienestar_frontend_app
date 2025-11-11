@@ -5,11 +5,11 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndi
 import { useFocusEffect } from '@react-navigation/native'; 
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios'; 
-
+import { SERVER_URI } from '@env';
 import { AuthContext } from '../../context/AuthContext'; 
 
 
-const BASE_URL = 'http://10.0.2.2:5000/api'; 
+const BASE_URL =  SERVER_URI;
 const API_URL_SESION = `${BASE_URL}/actividad/sesion`; 
 
 // --- Paleta de Colores ---

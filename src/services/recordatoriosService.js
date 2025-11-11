@@ -22,7 +22,7 @@ export const recordatoriosService = {
   // Obtener todos los recordatorios
   obtenerTodosConPaginacion: async (queryParams = '') => {
     try {
-      console.log('Conectando a:', `${SERVER_URI}/api/recordatorios?${queryParams}`);
+      console.log('Recordatorios | Conectando aaa:', `${SERVER_URI}/api/recordatorios?${queryParams}`);
       
       const response = await fetchWithTimeout(`${SERVER_URI}/api/recordatorios?${queryParams}`);
       

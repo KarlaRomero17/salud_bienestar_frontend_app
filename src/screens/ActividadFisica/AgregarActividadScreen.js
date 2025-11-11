@@ -15,9 +15,10 @@ import {
 import { Picker } from '@react-native-picker/picker'; 
 import axios from 'axios'; 
 import { Ionicons } from '@expo/vector-icons'; 
-
+import { SERVER_URI } from '@env'; 
 // ⚠️ AJUSTA LA URL BASE DE TU BACKEND
-const BASE_URL = 'http://10.0.2.2:5000/api/actividad';
+
+const BASE_URL = `${SERVER_URI}/api/actividad`;
 
 const COLORS = { 
     primary: '#2a8c4a', secondary: '#64c27b', light: '#9bfab0', 

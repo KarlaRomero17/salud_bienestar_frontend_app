@@ -4,9 +4,13 @@ import authService from '../services/authService';
 import firebaseAuth from '../firebaseAuth';
 import tokenManager from '../utils/tokenManager';
 import { getDatabase, ref, get } from 'firebase/database';
+import { SERVER_URI } from '@env';
+import axios from 'axios';
 
 export const AuthContext = createContext();
 
+
+const API_BASE_URL = `${SERVER_URI}/api`;
 const USER_STORAGE_KEY = '@user_session';
 
 export const AuthProvider = ({ children }) => {

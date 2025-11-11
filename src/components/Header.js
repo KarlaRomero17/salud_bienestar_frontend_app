@@ -68,7 +68,7 @@ const Header = ({
         </Text>
         
         {/* Información de peso */}
-        <View style={styles.weightContainer}>
+        {/* <View style={styles.weightContainer}>
           <View style={styles.weightCard}>
             <View style={styles.weightInfo}>
               <Text style={styles.weightLabel}>Peso Actual</Text>
@@ -98,10 +98,10 @@ const Header = ({
               </Text>
             </View>
           </View>
-        </View>
+        </View> */}
 
         {/* Barra de progreso visual */}
-        <View style={styles.progressContainer}>
+        {/* <View style={styles.progressContainer}>
           <View style={styles.progressLabels}>
             <Text style={styles.progressText}>Inicio: {currentWeight} {weightUnit}</Text>
             <Text style={styles.progressText}>Meta: {targetWeight} {weightUnit}</Text>
@@ -120,7 +120,7 @@ const Header = ({
           <Text style={styles.motivationalText}>
             {getMotivationalMessage()}
           </Text>
-        </View>
+        </View> */}
       </View>
       
       <View style={styles.rightSection}>
