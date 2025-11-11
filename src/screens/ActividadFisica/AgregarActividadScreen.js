@@ -16,8 +16,8 @@ import { Picker } from '@react-native-picker/picker';
 import axios from 'axios'; 
 import { Ionicons } from '@expo/vector-icons'; 
 
-// ⚠️ AJUSTA LA URL BASE DE TU BACKEND
-const BASE_URL = 'http://10.0.2.2:5000/api/actividad';
+
+const BASE_URL = 'http://192.168.1.148:5000/api/actividad';
 
 const COLORS = { 
     primary: '#2a8c4a', secondary: '#64c27b', light: '#9bfab0', 
@@ -32,7 +32,7 @@ const CALORIE_FACTORS = {
     BODYWEIGHT_TIME: 7.0, // Kcal por minuto (entrenamiento sin pesas/calistenia)
 };
 
-// 🔑 CORRECCIÓN: Generador de ID local simple para evitar el error 'crypto.getRandomValues()'
+
 const generateLocalId = () => {
     return Date.now().toString(36) + Math.random().toString(36).substring(2);
 };
@@ -62,7 +62,7 @@ export default function AgregarActividadScreen({ navigation }) {
     });
 
 
-    // 1. OBTENER CATÁLOGO DE DATOS DEL BACKEND
+    //OBTENER CATÁLOGO DE DATOS DEL BACKEND
     const fetchCatalogo = useCallback(async () => {
         setIsLoadingData(true);
         try {
@@ -88,7 +88,7 @@ export default function AgregarActividadScreen({ navigation }) {
     }, [fetchCatalogo]);
 
 
-    // 2. FUNCIÓN DE ESTIMACIÓN DE CALORÍAS
+    //FUNCIÓN DE ESTIMACIÓN DE CALORÍAS
     const estimarCalorias = (tipo, actividad) => {
         let calorias = 0;
         
@@ -122,13 +122,13 @@ export default function AgregarActividadScreen({ navigation }) {
     };
 
 
-    // 3. FUNCIÓN CLAVE: GUARDAR Y NAVEGAR (PERSISTENCIA LOCAL)
+    //FUNCIÓN CLAVE: GUARDAR Y NAVEGAR (PERSISTENCIA LOCAL)
     const handleGuardarActividad = () => {
         let nombreActividad;
         let caloriasEstimadas;
         let actividadValida = false;
         let dataToSave = { 
-            id: generateLocalId(), // 🔑 ID TEMPORAL CORREGIDO
+            id: generateLocalId(), 
             tipo: selectedTipo,
         };
 
@@ -168,16 +168,16 @@ export default function AgregarActividadScreen({ navigation }) {
             return;
         }
         
-        // 4. Calcular calorías finales
+      
         caloriasEstimadas = estimarCalorias(selectedTipo, dataToSave);
         dataToSave.calorias = caloriasEstimadas;
 
-        // 5. Enviar el objeto de actividad a NuevaSesionScreen (Persistencia)
+       
         navigation.navigate('NuevaSesion', { nuevaActividad: dataToSave });
     };
 
 
-    // 4. Renderizado condicional
+  
     const renderFormulario = () => {
         if (selectedTipo === 'Actividad Física') {
             return (
@@ -215,7 +215,7 @@ export default function AgregarActividadScreen({ navigation }) {
                     <Text style={styles.suggestionText}>Introduce al menos uno de los dos.</Text>
                 </View>
             );
-        } else { // Entrenamiento
+        } else {
             return (
                 <View style={styles.formSection}>
                     <Text style={styles.label}>Ejercicio/Entrenamiento</Text>
@@ -286,7 +286,7 @@ export default function AgregarActividadScreen({ navigation }) {
     };
 
 
-    // 5. Renderizado principal
+ 
     if (isLoadingData) {
         return (
             <View style={styles.loadingContainer}>
