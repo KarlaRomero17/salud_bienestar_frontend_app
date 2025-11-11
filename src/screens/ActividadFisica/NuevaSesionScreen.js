@@ -1,339 +1,335 @@
-// src/screens/ActividadFisica/NuevaSesionScreen.js - CÓDIGO FINAL CORREGIDO Y ROBUSTO
-
+// src/screens/ActividadFisica/NuevaSesionScreen.js - CÓDIGO CORREGIDO
 import React, { useState, useCallback, useContext } from 'react'; 
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native'; 
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native'; 
 import { useFocusEffect } from '@react-navigation/native'; 
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios'; 
-
 import { AuthContext } from '../../context/AuthContext'; 
 
-
+// ⚠️ AJUSTA TU URL BASE
 const BASE_URL = 'http://10.0.2.2:5000/api'; 
-const API_URL_SESION = `${BASE_URL}/actividad/sesion`; 
+const API_URL_SESION = `${BASE_URL}/actividad/sesion`;
+const API_URL_SESION_HOY = `${BASE_URL}/actividad/sesion/hoy`;
 
-// --- Paleta de Colores ---
+// 🎨 PALETA DE COLORES
 const COLORS = {
     primary: '#2a8c4a', secondary: '#64c27b', light: '#9bfab0', 
     lighter: '#d0fdd7', white: '#ffffff', text: '#333333', error: '#e74c3c', 
 };
 
-export default function NuevaSesionScreen({ navigation, route }) {
-
-    // 🚨 1. OBTENCIÓN DEL ID DE USUARIO DEL CONTEXT
-    const { user } = useContext(AuthContext); 
-    const idUsuario = user?.uid; // Asume que el UID es el idUsuario
-
-    // 2. ESTADO CLAVE: Persistencia local de la sesión
-    const [sesion, setSesion] = useState({ 
-        id: 'sesion-temp-1', // ID temporal local
-        fecha: new Date().toISOString(), 
-        actividades: [], // ARRAY QUE GUARDA TEMPORALMENTE TUS ACTIVIDADES
-    });
-    const [isLoading, setIsLoading] = useState(false);
-
-    // 3. CÁLCULO DE RESUMEN
-    const calcularResumen = (actividades) => {
-        const totalCalorias = actividades.reduce((sum, act) => sum + (act.calorias || 0), 0).toFixed(1);
-        const totalKm = actividades.reduce((sum, act) => sum + (act.distancia || 0), 0).toFixed(1);
-        return {
-            numEjercicios: actividades.length,
-            totalCalorias: parseFloat(totalCalorias),
-            totalKm: parseFloat(totalKm),
-        };
+// Función de utilidad para calcular el resumen de la actividad
+const calcularResumen = (actividades) => {
+    const resumen = {
+        calorias: 0,
+        km: 0,
     };
 
-    const resumen = calcularResumen(sesion.actividades);
-
-    // 4. LÓGICA DE PERSISTENCIA LOCAL (Se activa al volver de AgregarActividad)
-    const handleActividadChange = useCallback(() => {
-        if (route.params?.nuevaActividad) {
-            const actividad = route.params.nuevaActividad;
-
-            setSesion(prevSesion => {
-                const updatedActividades = [...prevSesion.actividades, actividad];
-                return {
-                    ...prevSesion,
-                    actividades: updatedActividades,
-                };
-            });
-
-            // Limpia el parámetro para evitar duplicados al re-enfocar
-            navigation.setParams({ nuevaActividad: undefined });
+    (actividades || []).forEach(act => {
+        resumen.calorias += act.calorias || 0;
+        if (act.tipo === 'Actividad Física') {
+            resumen.km += act.distancia || 0;
         }
-    }, [route.params?.nuevaActividad, navigation]);
+    });
 
-    // 5. useFocusEffect llama a la función cada vez que la pantalla está enfocada
-    useFocusEffect(handleActividadChange);
+    return resumen;
+};
 
-    // 6. MANEJO DE ELIMINACIÓN DE ACTIVIDAD (Temporal)
-    const handleEliminarActividad = (index) => {
+
+export default function NuevaSesionScreen({ navigation, route }) {
+    
+    const { user } = useContext(AuthContext); 
+    const idUsuario = user?.uid; 
+
+    const [sesionId, setSesionId] = useState(null);
+    const [actividades, setActividades] = useState([]);
+    const [resumenSesion, setResumenSesion] = useState(calcularResumen([]));
+    const [isLoading, setIsLoading] = useState(true);
+
+    // --- Funciones de Fetch y Lógica de Sesión ---
+
+    const fetchSesionHoy = useCallback(async () => {
+        if (!idUsuario) {
+            setIsLoading(false);
+            return;
+        }
+        setIsLoading(true);
+        try {
+         
+            const response = await axios.get(`${API_URL_SESION_HOY}/${idUsuario}`);
+            const data = response.data;
+            
+            if (data.sesionId) {
+                // Si existe, carga los datos
+                setSesionId(data.sesionId);
+                setActividades(data.actividades || []);
+                setResumenSesion(calcularResumen(data.actividades));
+            } else {
+                // Si no existe, inicializa la pantalla para CREAR la sesión
+                setSesionId(null);
+                setActividades([]);
+                setResumenSesion(calcularResumen([]));
+            }
+        } catch (error) {
+            Alert.alert("Error", "No se pudo cargar la sesión del día. Intente de nuevo.");
+            setSesionId(null);
+            setActividades([]);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [idUsuario]);
+
+    
+    const handleCrearSesion = async () => {
+        if (!idUsuario) {
+            Alert.alert("Error", "Usuario no identificado.");
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const nuevaSesion = {
+                idUsuario: idUsuario,
+                fecha: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+            };
+            
+            // Llama a POST /api/actividad/sesion
+            const response = await axios.post(API_URL_SESION, nuevaSesion);
+            
+            if (response.data && response.data.sesionId) {
+                setSesionId(response.data.sesionId);
+                setActividades(response.data.actividades || []);
+                Alert.alert("Éxito", "Sesión creada. ¡Ahora añade tus actividades!");
+            } else {
+                Alert.alert("Error", "Respuesta inválida al crear sesión.");
+            }
+            
+        } catch (error) {
+            Alert.alert("Error", "No se pudo crear la sesión.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    // Lógica para manejar la eliminación de una actividad
+    const handleEliminarActividad = async (actividadId) => {
+        if (!sesionId || !actividadId) return;
+
         Alert.alert(
-            "Eliminar Actividad",
+            "Confirmar Eliminación",
             "¿Estás seguro de que quieres eliminar esta actividad de la sesión?",
             [
                 { text: "Cancelar", style: "cancel" },
-                { 
-                    text: "Eliminar", 
+                {
+                    text: "Eliminar",
+                    onPress: async () => {
+                        const nuevasActividades = actividades.filter(act => act._id !== actividadId);
+                        setIsLoading(true);
+                        try {
+                           
+                            await axios.put(`${API_URL_SESION}/replace/${sesionId}?action=replace`, { actividades: nuevasActividades });
+                            
+                            
+                            setActividades(nuevasActividades);
+                            setResumenSesion(calcularResumen(nuevasActividades));
+                            
+                            Alert.alert("Éxito", "Actividad eliminada.");
+                            
+                        } catch (error) {
+                            Alert.alert("Error", "No se pudo eliminar la actividad. Asegúrate de que tu backend soporta la eliminación.");
+                            console.error("Error al eliminar actividad:", error.response?.data || error);
+                        } finally {
+                            setIsLoading(false);
+                        }
+                    },
                     style: "destructive",
+                },
+            ]
+        );
+    };
+
+    
+    const handleGuardarSesion = () => {
+        Alert.alert(
+            "Sesión Finalizada",
+            "La sesión se ha guardado. Puedes consultarla en Estadísticas. ¿Volver al menú principal?",
+            [
+                {
+                    text: "Aceptar",
                     onPress: () => {
-                        setSesion(prevSesion => ({
-                            ...prevSesion,
-                            actividades: prevSesion.actividades.filter((_, i) => i !== index),
-                        }));
+                        // Limpiar el estado y forzar la vista de "Crear Nueva Sesión"
+                        setSesionId(null);
+                        setActividades([]);
+                        setResumenSesion(calcularResumen([]));
+                        
+                        // Navegar al menú principal
+                        navigation.navigate('MenuActividad'); 
                     }
                 },
             ]
         );
     };
 
-    // 7. FUNCIÓN CLAVE: GUARDAR EN MONGODB
-    const handleGuardarSesion = async () => {
-        if (sesion.actividades.length === 0) {
-            Alert.alert("Error", "Debes añadir al menos una actividad para guardar la sesión.");
-            return;
-        }
-
-        setIsLoading(true);
-
-        // 💡 7.1. Los datos que se envían al backend
-        const dataToSend = {
-            idUsuario: idUsuario, // El backend lo mapea a pacienteId
-            fecha: sesion.fecha,
-            // Las actividades ya están en el formato del modelo de Mongoose
-            actividades: sesion.actividades.map(({ id, ...rest }) => rest), 
-        };
-
-        try {
-            const response = await axios.post(API_URL_SESION, dataToSend);
+ 
+    
+    useFocusEffect(
+        useCallback(() => {
+        
+            fetchSesionHoy();    
             
-            Alert.alert("Éxito", "Sesión de actividad guardada correctamente.", [
-                {
-                    text: "Aceptar",
-                    onPress: () => {
-                        // Limpia el estado y navega al historial
-                        setSesion({ id: 'sesion-temp-1', fecha: new Date().toISOString(), actividades: [] });
-                        navigation.goBack(); // O navega al historial de sesiones
-                    }
-                }
-            ]);
-        } catch (error) {
-            console.error("Error al guardar la sesión:", error);
-            // Muestra un error más útil al usuario (ej: problemas de conexión)
-            Alert.alert("Error de Guardado", `No se pudo guardar la sesión. Revisa la conexión o la URL: ${error.message}`);
-        } finally {
-            setIsLoading(false);
+            return () => {};
+        }, [fetchSesionHoy]) 
+    );
+    
+    // Función para renderizar una tarjeta de actividad (sin cambios)
+    const renderActividadItem = ({ item }) => {
+        
+        let details = '';
+        if (item.tipo === 'Actividad Física') {
+            const tiempoText = item.tiempo ? `${item.tiempo} min.` : '';
+            const distanciaText = item.distancia ? `${item.distancia} km` : '';
+            details = [tiempoText, distanciaText].filter(Boolean).join(' / ');
+        } else if (item.tipo === 'Entrenamiento') {
+            const seriesReps = (item.series && item.repeticiones) ? `${item.series} series x ${item.repeticiones} reps` : '';
+            const pesoText = item.peso ? ` - ${item.peso} kg` : '';
+            const tiempoText = item.tiempo ? `${item.tiempo} min.` : '';
+            details = [seriesReps, pesoText, tiempoText].filter(Boolean).join(' | ');
         }
-    };
-
-
-    // 8. RENDERIZADO DE ITEM DE LA FLATLIST
-    const renderActividadItem = ({ item, index }) => {
-        const detalles = [];
-        if (item.tiempo) detalles.push(`${item.tiempo} min`);
-        if (item.distancia) detalles.push(`${item.distancia} km`);
-        if (item.series && item.repeticiones) detalles.push(`${item.series}x${item.repeticiones}`);
-        if (item.peso) detalles.push(`${item.peso} kg`);
 
         return (
             <View style={styles.actividadCard}>
                 <View style={styles.actividadHeader}>
-                    <Text style={styles.actividadNombre}>{item.nombre} ({item.tipo})</Text>
+                    <Text style={styles.actividadNombre}>{item.nombre}</Text>
                     <View style={styles.actionButtons}>
-                        <TouchableOpacity 
-                            onPress={() => handleEliminarActividad(index)} 
-                            style={styles.actionButton}
-                        >
-                            <Ionicons name="trash-outline" size={20} color={COLORS.error} />
+                        <TouchableOpacity onPress={() => handleEliminarActividad(item._id)}>
+                            <Ionicons name="trash-outline" size={24} color={COLORS.error} />
                         </TouchableOpacity>
                     </View>
                 </View>
+
                 <View style={styles.actividadDetails}>
-                    <Text style={styles.detailText}>Detalles: {detalles.join(' | ')}</Text>
-                    <Text style={styles.calorias}>{item.calorias.toFixed(1)} kcal</Text>
+                    <Text style={styles.detailText}>{details || 'Sin detalles'}</Text>
+                    <Text style={styles.calorias}>{item.calorias?.toFixed(1) || 0} kcal</Text>
                 </View>
             </View>
         );
     };
 
 
+    
     if (isLoading) {
         return (
-            <View style={styles.loadingContainer}>
+            <View style={styles.centered}>
                 <ActivityIndicator size="large" color={COLORS.primary} />
-                <Text style={styles.loadingText}>Guardando sesión...</Text>
+                <Text style={{ marginTop: 10 }}>Cargando sesión...</Text>
+            </View>
+        );
+    }
+    
+  
+    if (!sesionId) {
+        return (
+            <View style={styles.centered}>
+                <Text style={styles.centeredTitle}>Registrar Sesión de Hoy</Text>
+                <Text style={styles.centeredSubtitle}>Comienza haciendo clic en 'Crear Sesión' para registrar tus actividades.</Text>
+                <TouchableOpacity 
+                    style={styles.primaryButton}
+                    onPress={handleCrearSesion}
+                >
+                    <Ionicons name="add-circle-outline" size={24} color={COLORS.white} />
+                    <Text style={styles.primaryButtonText}>Crear Nueva Sesión</Text>
+                </TouchableOpacity>
             </View>
         );
     }
 
-
+ 
     return (
         <View style={styles.container}>
-            <FlatList
-                data={sesion.actividades}
-                renderItem={renderActividadItem}
-                keyExtractor={(item, index) => index.toString()}
-                ListHeaderComponent={() => (
-                    <View style={styles.header}>
-                        <Text style={styles.headerTitle}>Nueva Sesión</Text>
-                        <Text style={styles.headerSubtitle}>
-                            Añade actividades antes de guardar
-                        </Text>
+            <ScrollView contentContainerStyle={styles.contentContainer} style={{flex: 1}}>
+                <Text style={styles.headerTitle}>Sesión de Hoy: {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}</Text>
+                <Text style={styles.headerSubtitle}>Añade, edita o elimina las actividades registradas.</Text>
 
-                        {/* --- RESUMEN DE LA SESIÓN (ERROR DE TEXTO CORREGIDO) --- */}
-                        <View style={styles.resumenCard}>
-                            <Text style={styles.resumenTitle}>Resumen de la Sesión</Text>
-                            <View style={styles.resumenDetailContainer}>
-                                <Text style={styles.resumenText}>
-                                    <Text style={{fontWeight: 'bold'}}>Actividades Añadidas: </Text>
-                                    <Text style={styles.resumenValue}>{resumen.numEjercicios}</Text>
-                                </Text>
-                                <Text style={styles.resumenText}>
-                                    <Text style={{fontWeight: 'bold'}}>Km Totales: </Text>
-                                    <Text style={styles.resumenValue}>{resumen.totalKm} km</Text>
-                                </Text>
-                                <Text style={styles.resumenText}>
-                                    <Text style={{fontWeight: 'bold'}}>Calorías Totales: </Text>
-                                    <Text style={styles.resumenCalorieValue}>{resumen.totalCalorias} kcal</Text>
-                                </Text>
-                            </View>
-                        </View>
-                        {/* --- FIN RESUMEN --- */}
+                {/* Resumen */}
+                <View style={styles.summaryCard}>
+                    <Ionicons name="flame-outline" size={24} color={COLORS.error} />
+                    <Text style={styles.summaryText}>Total de Calorías Quemadas: </Text>
+                    <Text style={styles.summaryValue}>{resumenSesion.calorias.toFixed(1)} kcal</Text>
+                    
+                    <Ionicons name="walk-outline" size={24} color={COLORS.primary} style={{ marginTop: 10 }} />
+                    <Text style={styles.summaryText}>Total de Distancia Recorrida: </Text>
+                    <Text style={styles.summaryValue}>{resumenSesion.km.toFixed(1)} km</Text>
+                </View>
 
+                <Text style={styles.listHeader}>Actividades Añadidas ({actividades.length})</Text>
 
-                        <TouchableOpacity 
-                            style={styles.addButton}
-                            onPress={() => navigation.navigate('AgregarActividad')}
-                        >
-                            <Ionicons name="add-circle-outline" size={24} color={COLORS.white} />
-                            <Text style={styles.addButtonText}>Añadir Nueva Actividad</Text>
-                        </TouchableOpacity>
-
-                        {sesion.actividades.length === 0 && (
-                            <Text style={styles.emptyText}>Presiona "Añadir Nueva Actividad" para empezar.</Text>
-                        )}
-
-                        {sesion.actividades.length > 0 && (
-                            <Text style={styles.listTitle}>Actividades en Sesión:</Text>
-                        )}
-                    </View>
+                {actividades.length === 0 ? (
+                    <Text style={styles.emptyListText}>Aún no has añadido actividades a esta sesión.</Text>
+                ) : (
+                    <FlatList
+                        data={actividades}
+                        renderItem={renderActividadItem}
+                        keyExtractor={item => item._id}
+                        scrollEnabled={false}
+                    />
                 )}
-                contentContainerStyle={styles.flatListContainer}
-            />
-
-            {/* --- BOTÓN FINAL: GUARDAR SESIÓN --- */}
-            {sesion.actividades.length > 0 && (
+            </ScrollView>
+            
+            {/* Botones de acción flotantes */}
+            <View style={styles.footerButtons}>
                 <TouchableOpacity 
-                    style={styles.saveButton}
-                    onPress={handleGuardarSesion}
-                    disabled={isLoading}
+                    style={styles.secondaryButton}
+                  
+                    onPress={() => navigation.navigate('AgregarActividad', { sesionId })}
                 >
-                    <Text style={styles.saveButtonText}>Finalizar y Guardar Sesión</Text>
+                    <Ionicons name="add-outline" size={24} color={COLORS.primary} />
+                    <Text style={styles.secondaryButtonText}>Agregar Actividad</Text>
                 </TouchableOpacity>
-            )}
+                
+                <TouchableOpacity 
+                    style={[styles.primaryButton, { flex: 0.6 }]}
+                    onPress={handleGuardarSesion}
+                >
+                    <Ionicons name="checkmark-done-circle-outline" size={24} color={COLORS.white} />
+                    <Text style={styles.primaryButtonText}>Guardar Sesión</Text>
+                </TouchableOpacity>
+            </View>
         </View>
     );
 }
 
+
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: COLORS.white,
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: COLORS.white,
-    },
-    loadingText: {
-        marginTop: 10,
-        fontSize: 16,
-        color: COLORS.text,
-    },
-    flatListContainer: {
-        paddingBottom: 20,
-    },
-    header: {
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        marginBottom: 10,
-    },
-    headerTitle: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: COLORS.primary,
-        marginBottom: 5,
-    },
-    headerSubtitle: {
-        fontSize: 16,
-        color: COLORS.text,
-        marginBottom: 15,
-    },
-    // --- Estilos para el Resumen (Ajustado) ---
-    resumenCard: {
-        backgroundColor: COLORS.lighter,
-        padding: 15,
-        borderRadius: 10,
-        marginBottom: 15,
-        borderLeftWidth: 5,
-        borderLeftColor: COLORS.secondary,
-    },
-    resumenTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: COLORS.primary,
-        marginBottom: 8,
-    },
-    resumenDetailContainer: {
-        // Para que los detalles se muestren bien en filas.
-    },
-    resumenText: { 
-        fontSize: 15, 
-        color: COLORS.text, 
-        paddingVertical: 2,
-    },
-    resumenValue: {
-        fontWeight: 'normal', // Los valores numéricos no necesitan doble bold
-        color: COLORS.text,
-    },
-    resumenCalorieValue: {
-        fontWeight: 'normal',
-        color: COLORS.error, // Color diferente para calorías
-    },
-    // --- Fin Estilos Resumen ---
-    addButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: COLORS.primary,
-        padding: 15,
-        borderRadius: 8,
-        marginTop: 10,
-        marginBottom: 20,
-        gap: 8,
-        elevation: 2,
-    },
-    addButtonText: {
-        color: COLORS.white,
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    listTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: COLORS.text,
-        marginTop: 10,
-        marginBottom: 10,
-        paddingHorizontal: 0,
-    },
-    emptyText: {
+    container: { flex: 1, backgroundColor: COLORS.white },
+    contentContainer: { paddingBottom: 100 },
+    
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: COLORS.white },
+    centeredTitle: { fontSize: 22, fontWeight: 'bold', color: COLORS.primary, marginBottom: 10 },
+    centeredSubtitle: { fontSize: 16, color: COLORS.text, textAlign: 'center', marginBottom: 30 },
+    
+    headerTitle: { fontSize: 24, fontWeight: '900', color: COLORS.primary, paddingHorizontal: 20, paddingTop: 20, },
+    headerSubtitle: { fontSize: 14, color: COLORS.text, marginBottom: 20, paddingHorizontal: 20, },
+
+    listHeader: { fontSize: 18, fontWeight: 'bold', color: COLORS.text, marginHorizontal: 20, marginTop: 15, marginBottom: 10 },
+    emptyListText: {
         textAlign: 'center',
-        color: COLORS.secondary,
+        color: COLORS.text,
         fontStyle: 'italic',
         marginTop: 10,
         marginBottom: 20,
     },
+    
+    summaryCard: {
+        backgroundColor: COLORS.lighter,
+        padding: 20,
+        marginHorizontal: 20,
+        borderRadius: 10,
+        marginBottom: 20,
+        borderLeftWidth: 5,
+        borderLeftColor: COLORS.secondary,
+    },
+    summaryText: { fontSize: 16, color: COLORS.text, fontWeight: '600', marginTop: 5 },
+    summaryValue: { fontSize: 20, fontWeight: 'bold', color: COLORS.primary, marginBottom: 10 },
+
     actividadCard: {
         backgroundColor: COLORS.white,
         padding: 15,
@@ -378,21 +374,52 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: 10,
     },
-    actionButton: {
-        padding: 5,
-    },
-    saveButton: {
-        backgroundColor: COLORS.error, // Rojo o un color distinto para enfatizar la acción final
+    
+    // Botones Flotantes / Fijos
+    footerButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         padding: 20,
-        // Eliminamos el margin horizontal para que ocupe todo el ancho
-        borderTopLeftRadius: 10,
-        borderTopRightRadius: 10,
-        elevation: 5,
+        backgroundColor: COLORS.white, 
+        borderTopWidth: 1,
+        borderTopColor: COLORS.light,
+        position: 'absolute',
+        bottom: 0,
+        width: '100%',
+        gap: 15,
     },
-    saveButtonText: {
+    primaryButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: COLORS.primary,
+        padding: 15,
+        borderRadius: 8,
+        elevation: 3,
+    },
+    primaryButtonText: {
         color: COLORS.white,
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: 'bold',
-        textAlign: 'center',
+        marginLeft: 5,
     },
+    secondaryButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: COLORS.white,
+        padding: 15,
+        borderRadius: 8,
+        borderWidth: 2,
+        borderColor: COLORS.primary,
+    },
+    secondaryButtonText: {
+        color: COLORS.primary,
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginLeft: 5,
+    },
+    
 });

@@ -1,5 +1,3 @@
-// src/screens/ActividadFisica/EstadisticasScreen.js - CÓDIGO FINAL Y ROBUSTO
-
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { 
     View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, 
@@ -9,10 +7,10 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import DateTimePicker from '@react-native-community/datetimepicker'; 
 import { LineChart } from 'react-native-chart-kit'; 
+import { useFocusEffect } from '@react-navigation/native';
 import { AuthContext } from '../../context/AuthContext'; 
 
 const screenWidth = Dimensions.get('window').width;
-
 
 const BASE_URL = 'http://10.0.2.2:5000/api'; 
 const API_URL_ESTADISTICAS = `${BASE_URL}/actividad/estadisticas`; 
@@ -25,21 +23,70 @@ const COLORS = {
 
 const INITIAL_STATS = {
     totalSesiones: 0,
-    totalCalorias: 0,
     totalKm: 0,
-    ejercicioMasHecho: { nombre: 'N/A', count: 0 },
-    sesiones: [],
+    totalCalorias: 0,
+    actividadMasComun: 'N/A',
+    sesionesRecientes: [],
+    caloriasPorDia: [],
 };
 
-const formatDateToDisplay = (date) => {
-    if (!date) return 'Seleccionar';
-    return new Date(date).toLocaleDateString();
+const formatDateToDisplay = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'N/A';
+    const parts = date.toISOString().split('T')[0].split('-');
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
 };
 
 const formatDateToQuery = (date) => {
     if (!date) return null;
     return new Date(date).toISOString().split('T')[0];
 };
+
+const processLineChartData = (data) => {
+    const defaultData = {
+        labels: ["N/A"],
+        datasets: [{ data: [0] }],
+    };
+    
+    // Protección aquí para caloriasPorDia
+    if (!data || !data.caloriasPorDia || data.caloriasPorDia.length === 0) {
+        return defaultData;
+    }
+
+    const sortedData = [...data.caloriasPorDia].sort((a, b) => new Date(a._id) - new Date(b._id));
+
+    const labels = sortedData.map(item => formatDateToDisplay(item._id).slice(0, 5));
+    const calorias = sortedData.map(item => item.totalCalorias);
+
+    return {
+        labels: labels.length > 0 ? labels : ["Hoy"], 
+        datasets: [{
+            data: calorias.length > 0 ? calorias : [0],
+            color: (opacity = 1) => `rgba(52, 152, 219, ${opacity})`,
+        }],
+    };
+};
+
+const chartConfig = {
+    backgroundGradientFrom: COLORS.white,
+    backgroundGradientTo: COLORS.white,
+    decimalPlaces: 0, 
+    color: (opacity = 1) => `rgba(42, 140, 74, ${opacity})`,
+    labelColor: (opacity = 1) => `rgba(51, 51, 51, ${opacity})`,
+    style: {
+        borderRadius: 16
+    },
+    propsForDots: {
+        r: "4",
+        strokeWidth: "2",
+        stroke: COLORS.primary
+    },
+    propsForLabels: {
+        fontSize: 10,
+    },
+};
+
 
 const EstadisticasScreen = () => {
     
@@ -54,26 +101,19 @@ const EstadisticasScreen = () => {
 
     const [showPicker, setShowPicker] = useState(false);
     const [pickerFor, setPickerFor] = useState(null);
-    
-    const [expandedSesionId, setExpandedSesionId] = useState(null);
 
-    const [lineChartData, setLineChartData] = useState({
-        labels: [],
-        datasets: [{ data: [] }],
-    });
+    const [expandedSesionId, setExpandedSesionId] = useState(null);
+    const [lineChartData, setLineChartData] = useState(processLineChartData(null));
 
     const handleDateChange = (event, selectedDate) => {
-        const currentDate = selectedDate || new Date();
-        setShowPicker(Platform.OS === 'ios');
-
-        if (event.type === 'set') {
+        setShowPicker(false);
+        if (event.type === 'set' && selectedDate) {
             if (pickerFor === 'inicio') {
-                setFechaInicio(currentDate);
+                setFechaInicio(selectedDate);
             } else if (pickerFor === 'fin') {
-                setFechaFin(currentDate);
+                setFechaFin(selectedDate);
             }
         }
-        setPickerFor(null);
     };
 
     const showDatepicker = (forDate) => {
@@ -81,28 +121,10 @@ const EstadisticasScreen = () => {
         setShowPicker(true);
     };
 
-    const processLineChartData = (data) => {
-        if (!data || data.sesiones.length === 0) {
-            return {
-                labels: ['Sin Datos'], 
-                datasets: [{ data: [0] }],
-            };
-        }
-
-        const sessionsToChart = data.sesiones.slice(-7); 
-
-        const lineData = {
-            labels: sessionsToChart.map(s => new Date(s.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })),
-            datasets: [{ 
-                data: sessionsToChart.map(s => parseFloat(s.totalCalorias)),
-                color: (opacity = 1) => `rgba(100, 194, 123, ${opacity})`, 
-                strokeWidth: 2 
-            }],
-        };
-
-        return lineData;
+    const clearDateFilter = () => {
+        setFechaInicio(null);
+        setFechaFin(null);
     };
-
 
     const fetchEstadisticas = useCallback(async () => {
         if (!idUsuario) {
@@ -119,255 +141,244 @@ const EstadisticasScreen = () => {
         try {
             const response = await axios.get(`${API_URL_ESTADISTICAS}/${idUsuario}`, { params });
             const data = response.data;
+            
             setEstadisticas(data);
             setLineChartData(processLineChartData(data)); 
             setExpandedSesionId(null);
+            
         } catch (error) {
-            console.error("Error al obtener estadísticas:", error);
-            Alert.alert("Error", "No se pudieron cargar las estadísticas. Revise la URL o su backend.");
-            setEstadisticas(INITIAL_STATS);
+            Alert.alert("Error", "No se pudieron cargar las estadísticas.");
+            setEstadisticas(INITIAL_STATS); // Restablecer a estado seguro
             setLineChartData(processLineChartData(null));
         } finally {
             setIsLoading(false);
         }
     }, [idUsuario, fechaInicio, fechaFin]);
 
+    useFocusEffect(
+        useCallback(() => {
+            fetchEstadisticas();
+            return () => { };
+        }, [fetchEstadisticas]) 
+    );
 
-    useEffect(() => {
-        fetchEstadisticas();
-    }, [fetchEstadisticas]);
+    const toggleSesionExpansion = (id) => {
+        setExpandedSesionId(expandedSesionId === id ? null : id);
+    };
 
-
-    const renderMetricaCard = (icon, title, value, unit, color = COLORS.primary) => (
-        <View style={styles.metricaCard}>
-            <Ionicons name={icon} size={30} color={color} style={styles.metricaIcon} />
-            <View style={styles.metricaContent}>
-                <Text style={styles.metricaValue}>{value}</Text>
-                <Text style={styles.metricaTitle}>{title}</Text>
-            </View>
-            <Text style={styles.metricaUnit}>{unit}</Text>
+    const renderMetricaCard = (title, value, unit, icon) => (
+        <View style={styles.metricCard}>
+            <Ionicons name={icon} size={24} color={COLORS.primary} />
+            <Text style={styles.metricValue}>{value}</Text>
+            <Text style={styles.metricTitle}>{title} (<Text style={{ fontWeight: 'normal' }}>{unit}</Text>)</Text>
         </View>
     );
 
-    // 🛑 LÓGICA DE DESGLOSE DE ACTIVIDAD REFORZADA
-    const renderActividadDetail = (actividad, index) => {
-        // Aseguramos que la actividad es válida
-        if (!actividad || !actividad.nombre) return null; 
-
-        let detalles = [];
-        
-        // --- 1. Actividad Física ---
+    const renderActividadDetail = (actividad) => {
+        let details = '';
         if (actividad.tipo === 'Actividad Física') {
-            // Usamos OR (|| 0) para asegurar que el valor sea numérico en la concatenación
-            if (actividad.distancia) detalles.push(`${actividad.distancia || 0} km`);
-            if (actividad.tiempo) detalles.push(`${actividad.tiempo || 0} min`);
-        } 
-        // --- 2. Entrenamiento ---
-        else if (actividad.tipo === 'Entrenamiento') { 
-            if (actividad.series && actividad.repeticiones) detalles.push(`${actividad.series} x ${actividad.repeticiones}`);
-            if (actividad.peso) detalles.push(`${actividad.peso || 0} kg`);
-            if (actividad.tiempo) detalles.push(`${actividad.tiempo || 0} min`);
+            const tiempoText = actividad.tiempo ? `${actividad.tiempo} min.` : '';
+            const distanciaText = actividad.distancia ? `${actividad.distancia} km` : '';
+            details = [tiempoText, distanciaText].filter(Boolean).join(' / ');
+        } else if (actividad.tipo === 'Entrenamiento') {
+            const seriesReps = (actividad.series && actividad.repeticiones) ? `${actividad.series} series x ${actividad.repeticiones} reps` : '';
+            const pesoText = actividad.peso ? ` - ${actividad.peso} kg` : '';
+            const tiempoText = actividad.tiempo ? `${actividad.tiempo} min.` : '';
+            details = [seriesReps, pesoText, tiempoText].filter(Boolean).join(' | ');
         }
+        
+        const key = actividad._id || actividad.id || Math.random().toString();
 
         return (
-            <View key={index} style={styles.actividadDetailCard}>
-                <Text style={styles.actividadName}>
-                    {actividad.nombre} ({actividad.tipo})
-                </Text>
-                <Text style={styles.actividadStats}>
-                    {detalles.length > 0 ? detalles.join(' | ') : 'Sin detalles específicos'}
-                </Text>
-                <Text style={styles.actividadCalorias}>
-                    <Ionicons name="flame" size={14} color={COLORS.error} /> {actividad.calorias ? actividad.calorias.toFixed(1) : '0.0'} kcal
-                </Text>
+            <View key={key} style={styles.actividadDetailCard}>
+                <Text style={styles.actividadName}>{actividad.nombre}</Text>
+                <Text style={styles.actividadStats}>{details}</Text>
+                <Text style={styles.actividadCalorias}>{actividad.calorias?.toFixed(1) || 0} kcal</Text>
             </View>
         );
     };
-    
-    // 🛑 LÓGICA DE DETALLE DE SESIÓN REFORZADA
+
     const renderSesionItem = ({ item }) => {
-        const isExpanded = item.id === expandedSesionId;
-        // 🔑 Verificación de array explícita
-        const actividades = Array.isArray(item.actividades) ? item.actividades : [];
+        const isExpanded = item._id === expandedSesionId;
+        // La corrección anterior ya estaba aquí: usa [] si actividades es undefined o null
+        const actividadesArray = item.actividades || [];
+        const totalSesionCalorias = actividadesArray.reduce((sum, act) => sum + (act.calorias || 0), 0).toFixed(1);
 
         return (
             <View style={styles.sesionCard}>
-                <TouchableOpacity 
-                    style={styles.sesionHeader}
-                    onPress={() => setExpandedSesionId(isExpanded ? null : item.id)}
-                >
-                    <View>
-                        <Text style={styles.sesionDate}>
-                            <Ionicons name="calendar-outline" size={16} color={COLORS.primary} /> {new Date(item.fecha).toLocaleDateString()}
-                        </Text>
-                        <Text style={styles.sesionText}>
-                            {item.numActividades} Actividades
-                        </Text>
+                <TouchableOpacity style={styles.sesionHeader} onPress={() => toggleSesionExpansion(item._id)}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.sesionDate}>Fecha: {formatDateToDisplay(item.fecha)}</Text>
+                        <View style={styles.sesionSummary}>
+                            <Ionicons name="flash-outline" size={14} color={COLORS.error} />
+                            <Text style={styles.sesionCalorias}>{totalSesionCalorias} kcal</Text>
+                            <Ionicons name="list-outline" size={14} color={COLORS.text} style={{ marginLeft: 15 }} />
+                            <Text style={styles.sesionText}>{actividadesArray.length} Actividades</Text>
+                        </View>
                     </View>
-                    <View style={styles.sesionSummary}>
-                        <Text style={styles.sesionCalorias}>
-                             {item.totalCalorias} kcal
-                        </Text>
-                        <Ionicons 
-                            name={isExpanded ? "chevron-up" : "chevron-down"} 
-                            size={20} 
-                            color={COLORS.text} 
-                        />
-                    </View>
+                    <Ionicons 
+                        name={isExpanded ? "chevron-up-outline" : "chevron-down-outline"} 
+                        size={24} 
+                        color={COLORS.primary} 
+                    />
                 </TouchableOpacity>
 
                 {isExpanded && (
                     <View style={styles.expandedContent}>
-                        {/* 🔑 La comprobación se basa en el array ya verificado */}
-                        {actividades.length > 0 ? (
-                            actividades.map((act, index) => renderActividadDetail(act, index))
-                        ) : (
-                            <Text style={styles.emptyActivityText}>No hay detalles de actividades para esta sesión.</Text>
-                        )}
+                        {actividadesArray.map(act => renderActividadDetail(act))}
                     </View>
                 )}
             </View>
         );
     };
 
+    // CORRECCIÓN ADICIONAL AQUÍ (Refuerzo)
+    const sesionesRecientesSeguras = estadisticas.sesionesRecientes || [];
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-            <Text style={styles.headerTitle}>Tu Progreso Físico</Text>
             
-            {/* --- FILTRO DE FECHAS (Sin cambios) --- */}
-            <View style={styles.filterContainer}>
-                <Text style={styles.filterLabel}>Filtrar por Rango de Fechas:</Text>
-                <View style={styles.datePickerRow}>
-                    <TouchableOpacity 
-                        style={styles.datePickerButton}
-                        onPress={() => showDatepicker('inicio')} 
-                    >
-                        <Text style={styles.datePickerText}>
-                            {formatDateToDisplay(fechaInicio) || 'Fecha Inicio'}
-                        </Text>
-                    </TouchableOpacity>
+            <Text style={styles.headerTitle}>Tu Progreso en Actividad Física</Text>
+            <Text style={styles.headerSubtitle}>Métricas calculadas en base a las sesiones registradas.</Text>
 
-                    <Text style={styles.dateSeparator}>a</Text>
+            {isLoading && (
+                <View style={styles.loadingOverlay}>
+                    <ActivityIndicator size="large" color={COLORS.primary} />
+                    <Text style={styles.loadingText}>Cargando estadísticas...</Text>
+                </View>
+            )}
+            
+            <View style={styles.metricsGrid}>
+                {renderMetricaCard("Sesiones Totales", estadisticas.totalSesiones.toString(), "Unidades", "calendar-outline")}
+                {renderMetricaCard("Km Recorridos", estadisticas.totalKm.toFixed(1), "km", "walk-outline")}
+                {renderMetricaCard("Kcal Quemadas", estadisticas.totalCalorias.toFixed(0), "kcal", "flame-outline")}
+                {renderMetricaCard("Más Común", estadisticas.actividadMasComun, "", "fitness-outline")}
+            </View>
+
+            <View style={styles.chartContainer}>
+                <Text style={styles.chartTitle}>Calorías Quemadas Diarias</Text>
+                <LineChart
+                    data={lineChartData}
+                    width={screenWidth - 40}
+                    height={220}
+                    chartConfig={chartConfig}
+                    bezier
+                    style={styles.chart}
+                />
+            </View>
+            
+            <View style={styles.filterContainer}>
+                <Text style={styles.filterTitle}>Filtro de Historial</Text>
+                <View style={styles.datePickerRow}>
+                    <TouchableOpacity style={styles.dateButton} onPress={() => showDatepicker('inicio')}>
+                        <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
+                        <Text style={styles.dateText}>Inicio: {fechaInicio ? formatDateToDisplay(fechaInicio) : 'Seleccionar'}</Text>
+                    </TouchableOpacity>
                     
-                    <TouchableOpacity 
-                        style={styles.datePickerButton}
-                        onPress={() => showDatepicker('fin')} 
-                    >
-                        <Text style={styles.datePickerText}>
-                            {formatDateToDisplay(fechaFin) || 'Fecha Fin'}
-                        </Text>
+                    <TouchableOpacity style={styles.dateButton} onPress={() => showDatepicker('fin')}>
+                        <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
+                        <Text style={styles.dateText}>Fin: {fechaFin ? formatDateToDisplay(fechaFin) : 'Seleccionar'}</Text>
                     </TouchableOpacity>
                 </View>
                 
-                <TouchableOpacity 
-                    style={styles.filterButton}
-                    onPress={fetchEstadisticas}
-                    disabled={isLoading}
-                >
-                    <Text style={styles.filterButtonText}>
-                        {isLoading ? 'Cargando...' : 'Aplicar Filtro'}
-                    </Text>
-                </TouchableOpacity>
+                {showPicker && (
+                    <DateTimePicker
+                        testID="dateTimePicker"
+                        value={pickerFor === 'inicio' ? (fechaInicio || new Date()) : (fechaFin || new Date())}
+                        mode="date"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        onChange={handleDateChange}
+                        maximumDate={new Date()}
+                    />
+                )}
+                
+                {(fechaInicio || fechaFin) && (
+                    <TouchableOpacity onPress={clearDateFilter} style={styles.clearFilterButton}>
+                        <Ionicons name="close-circle-outline" size={18} color={COLORS.error} />
+                        <Text style={styles.clearFilterText}>Limpiar Filtros de Fecha</Text>
+                    </TouchableOpacity>
+                )}
+            </View>
+
+            <View style={styles.historyContainer}>
+                <Text style={styles.historyTitle}>Historial de Sesiones ({estadisticas.totalSesiones} en total)</Text>
+                
+                {/* APLICACIÓN DEL REFUERZO DE SEGURIDAD EN LA LONGITUD */}
+                {sesionesRecientesSeguras.length > 0 ? (
+                    <FlatList
+                        data={sesionesRecientesSeguras}
+                        renderItem={renderSesionItem}
+                        keyExtractor={item => item._id}
+                        scrollEnabled={false}
+                    />
+                ) : (
+                    <Text style={styles.emptyText}>No hay sesiones registradas en este período.</Text>
+                )}
             </View>
             
-            {showPicker && (
-                <DateTimePicker
-                    testID="dateTimePicker"
-                    value={pickerFor === 'inicio' && fechaInicio ? fechaInicio : 
-                           pickerFor === 'fin' && fechaFin ? fechaFin : new Date()}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={handleDateChange}
-                    maximumDate={new Date()}
-                />
-            )}
+            <View style={{ height: 50 }} />
 
-
-            {isLoading && estadisticas.totalSesiones === 0 ? (
-                <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} />
-            ) : (
-                <>
-                    {/* --- RESUMEN DE MÉTRICAS (Sin cambios) --- */}
-                    <View style={styles.metricsGrid}>
-                        {renderMetricaCard("calendar-outline", "Total Sesiones", estadisticas.totalSesiones, "Sesiones", COLORS.secondary)}
-                        {renderMetricaCard("flame-outline", "Calorías Quemadas", estadisticas.totalCalorias, "kcal", COLORS.error)}
-                        {renderMetricaCard("map-outline", "Distancia Recorrida", estadisticas.totalKm, "km", COLORS.primary)}
-                        {renderMetricaCard("barbell-outline", "Ejercicio Más Hecho", estadisticas.ejercicioMasHecho.nombre, `(${estadisticas.ejercicioMasHecho.count} veces)`, COLORS.text)}
-                    </View>
-                    
-                    {/* --- GRÁFICO 1: LÍNEAS (Evolución de Calorías) --- */}
-                    {lineChartData.datasets[0].data.length > 1 && (
-                        <View style={styles.chartContainer}>
-                            <Text style={styles.chartTitle}>Evolución de Calorías Quemadas (Últ. Sesiones)</Text>
-                            <LineChart
-                                data={lineChartData}
-                                width={screenWidth - 40} 
-                                height={220}
-                                chartConfig={chartConfig}
-                                bezier
-                                style={styles.chart}
-                            />
-                        </View>
-                    )}
-
-
-                    {/* --- LISTA DE SESIONES (Desglose corregido) --- */}
-                    <Text style={styles.listTitle}>Historial de Sesiones</Text>
-                    {estadisticas.sesiones && estadisticas.sesiones.length > 0 ? (
-                        <FlatList
-                            data={estadisticas.sesiones}
-                            renderItem={renderSesionItem}
-                            keyExtractor={item => item.id.toString()}
-                            scrollEnabled={false}
-                            contentContainerStyle={styles.listContent}
-                        />
-                    ) : (
-                        <Text style={styles.emptyText}>No hay sesiones en el rango seleccionado.</Text>
-                    )}
-                </>
-            )}
         </ScrollView>
     );
 };
 
-const chartConfig = {
-    backgroundGradientFrom: COLORS.white,
-    backgroundGradientTo: COLORS.white,
-    color: (opacity = 1) => `rgba(42, 140, 74, ${opacity})`, 
-    labelColor: (opacity = 1) => `rgba(51, 51, 51, ${opacity})`, 
-    strokeWidth: 2,
-    barPercentage: 0.5,
-    useShadowColorFromDataset: false 
-};
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.white },
-    contentContainer: { paddingHorizontal: 20, paddingBottom: 40 },
-    headerTitle: { fontSize: 26, fontWeight: 'bold', color: COLORS.primary, textAlign: 'center', marginVertical: 20 },
+    contentContainer: { padding: 20 },
     
-    filterContainer: { padding: 15, backgroundColor: COLORS.lighter, borderRadius: 10, marginBottom: 20, borderWidth: 1, borderColor: COLORS.light },
-    filterLabel: { fontSize: 16, fontWeight: 'bold', color: COLORS.text, marginBottom: 10 },
-    datePickerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-    datePickerButton: { flex: 1, padding: 10, backgroundColor: COLORS.white, borderRadius: 5, borderWidth: 1, borderColor: COLORS.light, marginHorizontal: 5, alignItems: 'center' },
-    datePickerText: { fontSize: 14, color: COLORS.text },
-    dateSeparator: { marginHorizontal: 5, color: COLORS.text },
-    filterButton: { backgroundColor: COLORS.primary, padding: 12, borderRadius: 8, marginTop: 10 },
-    filterButtonText: { color: COLORS.white, fontSize: 16, fontWeight: 'bold', textAlign: 'center' },
-
-    chartContainer: { marginVertical: 10, borderRadius: 10, backgroundColor: COLORS.white, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.light, elevation: 1, },
-    chartTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.text, marginBottom: 10, paddingHorizontal: 15, },
-    chart: { borderRadius: 16, },
+    headerTitle: { fontSize: 24, fontWeight: '900', color: COLORS.primary, marginBottom: 5 },
+    headerSubtitle: { fontSize: 14, color: COLORS.text, marginBottom: 20 },
+    
+    loadingOverlay: { paddingVertical: 30, alignItems: 'center' },
+    loadingText: { marginTop: 10, color: COLORS.text },
 
     metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 20 },
-    metricaCard: { width: '48%', backgroundColor: COLORS.white, padding: 15, borderRadius: 10, marginBottom: 15, borderWidth: 1, borderColor: COLORS.light, elevation: 2 },
-    metricaIcon: { alignSelf: 'center', marginBottom: 8 },
-    metricaContent: { flexDirection: 'column', alignItems: 'center' },
-    metricaTitle: { fontSize: 14, color: COLORS.text, textAlign: 'center', marginTop: 5 },
-    metricaValue: { fontSize: 22, fontWeight: 'bold', color: COLORS.text, textAlign: 'center' },
-    metricaUnit: { fontSize: 12, color: COLORS.secondary, textAlign: 'center', marginTop: 5 },
+    metricCard: { 
+        width: '48%', 
+        backgroundColor: COLORS.lighter, 
+        padding: 15, 
+        borderRadius: 8, 
+        marginBottom: 10, 
+        borderLeftWidth: 4, 
+        borderLeftColor: COLORS.secondary 
+    },
+    metricValue: { fontSize: 28, fontWeight: 'bold', color: COLORS.primary, marginTop: 5 },
+    metricTitle: { fontSize: 13, color: COLORS.text, marginTop: 5 },
     
-    listTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.text, marginTop: 10, marginBottom: 10, borderBottomWidth: 2, borderBottomColor: COLORS.light, paddingBottom: 5 },
+    chartContainer: { 
+        backgroundColor: COLORS.lighter, 
+        borderRadius: 12, 
+        padding: 10, 
+        marginBottom: 20, 
+        elevation: 2 
+    },
+    chartTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.text, margin: 10, textAlign: 'center' },
+    chart: { 
+        marginVertical: 8,
+        borderRadius: 8,
+    },
+
+    filterContainer: { marginBottom: 20, borderBottomWidth: 2, borderBottomColor: COLORS.light, paddingBottom: 15 },
+    filterTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.text, marginBottom: 10 },
+    datePickerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+    dateButton: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        backgroundColor: COLORS.white, 
+        padding: 10, 
+        borderRadius: 5, 
+        borderWidth: 1, 
+        borderColor: COLORS.light,
+        width: '48%',
+    },
+    dateText: { marginLeft: 5, color: COLORS.text, fontSize: 13 },
+    clearFilterButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 5, marginTop: 5 },
+    clearFilterText: { marginLeft: 5, color: COLORS.error, fontWeight: '600' },
+
+    historyContainer: { marginBottom: 20 },
+    historyTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.text, marginBottom: 10 },
+    emptyText: { textAlign: 'center', color: COLORS.text, fontStyle: 'italic', padding: 20 },
     
     sesionCard: { backgroundColor: COLORS.white, borderRadius: 8, marginBottom: 10, borderWidth: 1, borderColor: COLORS.light, elevation: 1, overflow: 'hidden' },
     sesionHeader: { padding: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderLeftWidth: 4, borderLeftColor: COLORS.secondary },
@@ -380,10 +391,7 @@ const styles = StyleSheet.create({
     actividadDetailCard: { backgroundColor: COLORS.white, padding: 10, borderRadius: 5, marginBottom: 8, borderLeftWidth: 3, borderLeftColor: COLORS.primary },
     actividadName: { fontSize: 14, fontWeight: 'bold', color: COLORS.text },
     actividadStats: { fontSize: 13, color: COLORS.text, marginTop: 3 },
-    actividadCalorias: { fontSize: 13, fontWeight: 'bold', color: COLORS.error, marginTop: 5 },
-    
-    emptyActivityText: { textAlign: 'center', color: COLORS.text, fontStyle: 'italic' },
-    emptyText: { textAlign: 'center', color: COLORS.secondary, fontStyle: 'italic', marginTop: 20 },
+    actividadCalorias: { fontSize: 13, fontWeight: 'bold', color: COLORS.error, textAlign: 'right', marginTop: -20 },
 });
 
 export default EstadisticasScreen;

@@ -1,22 +1,18 @@
-// src/screens/Dashboard/DashboardScreen.js
-
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons'; 
 
-// --- Paleta de Colores ---
 const COLORS = {
-    primary: '#2a8c4a',      // Verde oscuro principal
-    secondary: '#64c27b',    // Verde medio
-    light: '#9bfab0',        // Verde muy claro
-    lighter: '#d0fdd7',      // Fondo de sección (usado para las tarjetas)
-    white: '#ffffff',        
-    text: '#333333',         // Texto principal
+    primary: '#2a8c4a',      
+    secondary: '#64c27b',    
+    light: '#9bfab0',        
+    lighter: '#d0fdd7',      
+    white: '#ffffff',        
+    text: '#333333',         
 };
 
-export default function DashboardScreen({ navigation }) {
+export default function MenuActividadScreen({ navigation }) {
     
-    // Función de utilidad para renderizar las tarjetas de acción
     const renderActionCard = (title, iconName, iconColor, screenName) => (
         <TouchableOpacity 
             style={styles.actionCard}
@@ -38,16 +34,14 @@ export default function DashboardScreen({ navigation }) {
         </TouchableOpacity>
     );
 
-    return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-            
+    return (
+        <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+            
             <Text style={styles.greeting}>Tu Módulo de Actividad</Text>
             <Text style={styles.subtitle}>Gestione su progreso y registre nuevas actividades fácilmente.</Text>
 
-            {/* --- CUERPO DE TARJETAS --- */}
             <View style={styles.cardGrid}>
                 
-                {/* 1. Agregar Actividad */}
                 {renderActionCard(
                     "Agregar Actividad / Entrenamiento",
                     "add-circle-outline",
@@ -55,7 +49,6 @@ export default function DashboardScreen({ navigation }) {
                     "NuevaSesion"
                 )}
 
-                {/* 2. Ver Estadísticas */}
                 {renderActionCard(
                     "Ver Estadísticas y Progreso",
                     "stats-chart-outline",
@@ -65,24 +58,23 @@ export default function DashboardScreen({ navigation }) {
                 
             </View>
 
-        </ScrollView>
-    );
+        </ScrollView>
+    );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: COLORS.white, 
-    },
+    container: {
+        flex: 1,
+        backgroundColor: COLORS.white, 
+    },
     contentContainer: {
         padding: 20,
-        paddingTop: 50, // Espacio superior para una mejor sensación de la pantalla
+        paddingTop: 50,
     },
     
-    // --- ESTILOS DE CABECERA ---
     greeting: {
         fontSize: 24,
-        fontWeight: '900', // Más fuerte que 'bold'
+        fontWeight: '900',
         color: COLORS.primary,
         marginBottom: 5,
     },
@@ -93,24 +85,21 @@ const styles = StyleSheet.create({
         lineHeight: 22,
     },
 
-    // --- ESTILOS DE TARJETAS MODERNAS ---
     cardGrid: {
         flexDirection: 'column',
         gap: 15,
     },
     actionCard: {
-        // Contenedor principal
         flexDirection: 'row',
         alignItems: 'center',
         
-        backgroundColor: COLORS.lighter, // Usando lighter para el fondo de la tarjeta
+        backgroundColor: COLORS.lighter, 
         padding: 15,
         paddingRight: 10,
         borderRadius: 12,
         
-        // Sombra suave para un efecto 3D
         elevation: 4,
-        shadowColor: COLORS.primary, // Usamos el color primario para una sombra temática
+        shadowColor: COLORS.primary, 
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.2,
         shadowRadius: 4,
@@ -119,7 +108,6 @@ const styles = StyleSheet.create({
         padding: 10,
         borderRadius: 8,
         marginRight: 15,
-        // El color de fondo se define dinámicamente
     },
     cardContent: {
         flex: 1,
@@ -131,7 +119,7 @@ const styles = StyleSheet.create({
         fontSize: 17,
         fontWeight: '700',
         color: COLORS.text,
-        flexShrink: 1, // Permite que el texto se comprima
+        flexShrink: 1, 
     },
     cardArrow: {
         marginLeft: 10,

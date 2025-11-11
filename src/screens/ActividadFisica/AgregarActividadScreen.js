@@ -1,4 +1,4 @@
-// src/screens/ActividadFisica/AgregarActividadScreen.js - CÓDIGO FINAL CORREGIDO (UUID/Crypto Fix)
+// src/screens/ActividadFisica/AgregarActividadScreen.js - CÓDIGO FINAL CORREGIDO (API Save Fix)
 
 import React, { useState, useEffect, useCallback } from 'react'; 
 import { 
@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 
 const BASE_URL = 'http://10.0.2.2:5000/api/actividad';
+const API_URL_SESION = `${BASE_URL}/sesion`; 
 
 const COLORS = { 
     primary: '#2a8c4a', secondary: '#64c27b', light: '#9bfab0', 
@@ -26,19 +27,17 @@ const COLORS = {
 
 // Factores de estimación calórica (Kcal por unidad base - simplificado)
 const CALORIE_FACTORS = { 
-    ACTIVITY_TIME: 6.0, // Kcal por minuto (ej: correr suave, nadar)
-    RUNNING_DISTANCE: 65.0, // Kcal por km
-    WEIGHT_TRAINING_TIME: 8.0, // Kcal por minuto (entrenamiento con pesas)
-    BODYWEIGHT_TIME: 7.0, // Kcal por minuto (entrenamiento sin pesas/calistenia)
+    ACTIVITY_TIME: 6.0, 
+    RUNNING_DISTANCE: 65.0, 
+    WEIGHT_TRAINING_TIME: 8.0, 
+    BODYWEIGHT_TIME: 7.0, 
 };
 
 
-const generateLocalId = () => {
-    return Date.now().toString(36) + Math.random().toString(36).substring(2);
-};
 
-
-export default function AgregarActividadScreen({ navigation }) {
+export default function AgregarActividadScreen({ navigation, route }) {
+    
+    const { sesionId } = route.params || {}; 
     
     const [selectedTipo, setSelectedTipo] = useState('Actividad Física'); 
     
@@ -62,7 +61,7 @@ export default function AgregarActividadScreen({ navigation }) {
     });
 
 
-    //OBTENER CATÁLOGO DE DATOS DEL BACKEND
+    // OBTENER CATÁLOGO DE DATOS DEL BACKEND (Sin cambios)
     const fetchCatalogo = useCallback(async () => {
         setIsLoadingData(true);
         try {
@@ -88,8 +87,8 @@ export default function AgregarActividadScreen({ navigation }) {
     }, [fetchCatalogo]);
 
 
-    //FUNCIÓN DE ESTIMACIÓN DE CALORÍAS
-    const estimarCalorias = (tipo, actividad) => {
+    
+    const estimarCalorias = (tipo) => {
         let calorias = 0;
         
         if (tipo === 'Actividad Física') {
@@ -122,16 +121,18 @@ export default function AgregarActividadScreen({ navigation }) {
     };
 
 
-    //FUNCIÓN CLAVE: GUARDAR Y NAVEGAR (PERSISTENCIA LOCAL)
-    const handleGuardarActividad = () => {
+  
+    const handleGuardarActividad = async () => {
         let nombreActividad;
-        let caloriasEstimadas;
         let actividadValida = false;
-        let dataToSave = { 
-            id: generateLocalId(), 
-            tipo: selectedTipo,
-        };
+        let dataToSave = { tipo: selectedTipo };
 
+        if (!sesionId) {
+            Alert.alert("Error", "No se encontró el ID de la sesión. Vuelve a la pantalla anterior y crea una sesión primero.");
+            return;
+        }
+
+        // 1. CONSTRUIR OBJETO DE DATOS
         if (selectedTipo === 'Actividad Física') {
             nombreActividad = catalogo.tiposActividad.find(t => t.value === actividadSeleccionada)?.label;
             
@@ -140,8 +141,8 @@ export default function AgregarActividadScreen({ navigation }) {
                 dataToSave = {
                     ...dataToSave,
                     nombre: nombreActividad || 'Actividad Desconocida',
-                    tiempo: parseFloat(tiempo) || undefined,
-                    distancia: parseFloat(distancia) || undefined,
+                    tiempo: parseFloat(tiempo) || 0,
+                    distancia: parseFloat(distancia) || 0,
                     tipoActividad: actividadSeleccionada, 
                 };
             }
@@ -155,27 +156,41 @@ export default function AgregarActividadScreen({ navigation }) {
                     ...dataToSave,
                     nombre: nombreActividad || 'Entrenamiento Desconocido',
                     conPesas: conPesas,
-                    series: parseInt(series) || undefined,
-                    repeticiones: parseInt(repeticiones) || undefined,
-                    peso: parseFloat(peso) || undefined,
-                    tiempo: parseFloat(tiempo) || undefined, 
+                    series: parseInt(series) || 0,
+                    repeticiones: parseInt(repeticiones) || 0,
+                    peso: parseFloat(peso) || 0,
+                    tiempo: parseFloat(tiempo) || 0, 
                 };
             }
         }
-
+        
+       
         if (!actividadValida) {
-            Alert.alert("Error de Datos", "Debes ingresar al menos el tiempo o la distancia (Act. Física), o series/repeticiones/tiempo (Entrenamiento).");
+            Alert.alert("Error de Datos", "Debes ingresar datos para la actividad.");
             return;
         }
         
-      
-        caloriasEstimadas = estimarCalorias(selectedTipo, dataToSave);
-        dataToSave.calorias = caloriasEstimadas;
+        dataToSave.calorias = estimarCalorias(selectedTipo);
 
        
-        navigation.navigate('NuevaSesion', { nuevaActividad: dataToSave });
-    };
+        setIsSaving(true); 
+        try {
+           
+            await axios.put(`${API_URL_SESION}/${sesionId}`, {
+                actividades: [dataToSave] 
+            });
 
+            
+            Alert.alert("Éxito", "Actividad guardada. Recargando sesión.");
+            navigation.navigate('NuevaSesion');
+
+        } catch (error) {
+            Alert.alert("Error", "No se pudo guardar la actividad en la base de datos. Asegúrate de que el backend esté corriendo.");
+            console.error("Error al guardar actividad:", error.response?.data || error);
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
   
     const renderFormulario = () => {
