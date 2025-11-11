@@ -17,7 +17,7 @@ import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons'; 
 
 
-const BASE_URL = 'http://192.168.1.148:5000/api/actividad';
+const BASE_URL = 'http://10.0.2.2:5000/api/actividad';
 
 const COLORS = { 
     primary: '#2a8c4a', secondary: '#64c27b', light: '#9bfab0', 

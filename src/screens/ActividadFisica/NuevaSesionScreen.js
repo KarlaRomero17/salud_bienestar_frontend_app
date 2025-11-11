@@ -9,7 +9,7 @@ import axios from 'axios';
 import { AuthContext } from '../../context/AuthContext'; 
 
 
-const BASE_URL = 'http://192.168.1.148:5000/api'; 
+const BASE_URL = 'http://10.0.2.2:5000/api'; 
 const API_URL_SESION = `${BASE_URL}/actividad/sesion`; 
 
 // --- Paleta de Colores ---
