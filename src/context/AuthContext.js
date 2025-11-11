@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import authService from '../services/authService';
 import firebaseAuth from '../firebaseAuth';
 import tokenManager from '../utils/tokenManager';
+import { getDatabase, ref, get } from 'firebase/database';
 
 export const AuthContext = createContext();
 
@@ -12,6 +13,51 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isNewUser, setIsNewUser] = useState(false);
+
+  // Función para cargar el perfil completo del usuario desde Firebase
+  // SIN usar orderByChild (que requiere índice)
+  const loadUserProfile = async (uid) => {
+    try {
+      const db = getDatabase();
+      const usuariosRef = ref(db, 'usuarios');
+      
+      // Obtener todos los usuarios y filtrar en cliente
+      // Esto evita el error de índice no definido
+      const snapshot = await get(usuariosRef);
+      
+      if (snapshot.exists()) {
+        const allUsers = snapshot.val();
+        
+        // Buscar el usuario que tiene idAuth === uid
+        let userFound = null;
+        let userKey = null;
+        
+        for (const [key, userData] of Object.entries(allUsers)) {
+          if (userData.idAuth === uid) {
+            userFound = userData;
+            userKey = key;
+            break;
+          }
+        }
+        
+        if (userFound) {
+          return {
+            firebaseKey: userKey, // Clave de Firebase Realtime Database
+            ...userFound
+          };
+        } else {
+          console.warn('No se encontró el perfil del usuario en la base de datos');
+          return null;
+        }
+      } else {
+        console.warn('No hay usuarios en la base de datos');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error cargando perfil del usuario:', error);
+      return null;
+    }
+  };
 
   const login = async (email, password, fromRegistration = false) => {
     try {
@@ -25,15 +71,30 @@ export const AuthProvider = ({ children }) => {
       
       // Login successful
       if (res && res.success) {
+        // Cargar el perfil completo del usuario
+        const userProfile = await loadUserProfile(res.user?.uid);
+        
         const userData = {
           uid: res.user?.uid,
           email: res.user?.email,
-          token: res.token
+          token: res.token,
+          // Agregar todos los datos del perfil
+          nombre: userProfile?.nombre,
+          apellido: userProfile?.apellido,
+          altura: userProfile?.altura,
+          peso: userProfile?.peso,
+          edad: userProfile?.edad,
+          sexo: userProfile?.sexo,
+          idRol: userProfile?.idRol,
+          fechaRegistro: userProfile?.fechaRegistro,
+          idAuth: userProfile?.idAuth,
+          firebaseKey: userProfile?.firebaseKey, // Clave en Realtime Database
         };
+        
         setUser(userData);
         setIsNewUser(fromRegistration); // Marcar si viene del registro
         
-        // Guardar sesión en AsyncStorage
+        // Guardar sesión completa en AsyncStorage
         await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
         
         // Guardar token usando tokenManager para manejo seguro
@@ -86,6 +147,117 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Función para actualizar el perfil del usuario
+  const updateUserProfile = async (updates) => {
+    try {
+      if (!user?.uid) {
+        return { success: false, error: 'No hay usuario autenticado' };
+      }
+
+      // Si ya tenemos la firebaseKey del usuario, úsala directamente
+      if (user.firebaseKey) {
+        const db = getDatabase();
+        const userRef = ref(db, `usuarios/${user.firebaseKey}`);
+        
+        // Actualizar en Firebase
+        const { set } = await import('firebase/database');
+        const snapshot = await get(userRef);
+        
+        if (snapshot.exists()) {
+          const currentData = snapshot.val();
+          await set(userRef, { ...currentData, ...updates });
+          
+          // Actualizar en el estado local
+          const updatedUser = { ...user, ...updates };
+          setUser(updatedUser);
+          
+          // Actualizar en AsyncStorage
+          await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+          
+          return { success: true, user: updatedUser };
+        }
+      }
+      
+      // Fallback: buscar el usuario sin índice
+      const db = getDatabase();
+      const usuariosRef = ref(db, 'usuarios');
+      const snapshot = await get(usuariosRef);
+      
+      if (snapshot.exists()) {
+        const allUsers = snapshot.val();
+        let userKey = null;
+        let currentData = null;
+        
+        // Buscar el usuario que tiene idAuth === user.uid
+        for (const [key, userData] of Object.entries(allUsers)) {
+          if (userData.idAuth === user.uid) {
+            userKey = key;
+            currentData = userData;
+            break;
+          }
+        }
+        
+        if (userKey && currentData) {
+          const userRef = ref(db, `usuarios/${userKey}`);
+          
+          // Actualizar en Firebase
+          const { set } = await import('firebase/database');
+          await set(userRef, { ...currentData, ...updates });
+          
+          // Actualizar en el estado local
+          const updatedUser = { ...user, ...updates, firebaseKey: userKey };
+          setUser(updatedUser);
+          
+          // Actualizar en AsyncStorage
+          await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+          
+          return { success: true, user: updatedUser };
+        }
+      }
+      
+      return { success: false, error: 'Usuario no encontrado en la base de datos' };
+    } catch (error) {
+      console.error('Error actualizando perfil:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Función para recargar el perfil del usuario
+  const reloadUserProfile = async () => {
+    try {
+      if (!user?.uid) {
+        return { success: false, error: 'No hay usuario autenticado' };
+      }
+
+      const userProfile = await loadUserProfile(user.uid);
+      
+      if (userProfile) {
+        const updatedUser = {
+          ...user,
+          nombre: userProfile?.nombre,
+          apellido: userProfile?.apellido,
+          altura: userProfile?.altura,
+          peso: userProfile?.peso,
+          edad: userProfile?.edad,
+          sexo: userProfile?.sexo,
+          idRol: userProfile?.idRol,
+          fechaRegistro: userProfile?.fechaRegistro,
+          firebaseKey: userProfile?.firebaseKey,
+        };
+        
+        setUser(updatedUser);
+        await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+        
+        return { success: true, user: updatedUser };
+      }
+      
+      return { success: false, error: 'No se pudo cargar el perfil' };
+    } catch (error) {
+      console.error('Error recargando perfil:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
   useEffect(() => {
     // Restaurar sesión desde AsyncStorage
     const loadSession = async () => {
@@ -104,7 +276,18 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, isNewUser, setIsNewUser }}>
+    <AuthContext.Provider 
+      value={{ 
+        user, 
+        login, 
+        logout, 
+        loading, 
+        isNewUser, 
+        setIsNewUser,
+        updateUserProfile,
+        reloadUserProfile
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

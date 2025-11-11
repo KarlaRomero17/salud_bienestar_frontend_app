@@ -14,11 +14,11 @@ const COLORS = {
     text: '#333333',         
 };
 
-export default function MenuActividadFisica({ navigation }) {
+export default function DashboardScreen({ navigation }) {
     return (
         <View style={styles.container}>
             
-           
+            {/* Botón para Iniciar/Continuar Sesión */}
             <TouchableOpacity 
                 style={styles.menuButton} 
                 onPress={() => navigation.navigate('NuevaSesion')}
@@ -27,7 +27,7 @@ export default function MenuActividadFisica({ navigation }) {
                 <Text style={styles.buttonText}>Agregar Actividad / Entrenamiento</Text>
             </TouchableOpacity>
             
-          
+            {/* Botón para ver Estadísticas */}
             <TouchableOpacity 
                 style={styles.menuButton} 
                 onPress={() => navigation.navigate('Estadisticas')}
@@ -43,13 +43,13 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 20,
-        backgroundColor: COLORS.white, 
+        backgroundColor: COLORS.white, // Fondo blanco
         justifyContent: 'center', 
     },
     menuButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: COLORS.primary, 
+        backgroundColor: COLORS.primary, // Color primario
         padding: 20,
         borderRadius: 12,
         marginBottom: 15,

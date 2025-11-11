@@ -24,7 +24,6 @@ export default function RegisterScreen({ navigation }) {
   const [peso, setPeso] = useState('');
   const [edad, setEdad] = useState('');
   const [sexo, setSexo] = useState('Masculino');
-  const [idRol, setIdRol] = useState('0');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = async () => {
@@ -40,7 +39,7 @@ export default function RegisterScreen({ navigation }) {
       peso: peso ? Number(peso) : null,
       edad: edad ? Number(edad) : null,
       sexo,
-      idRol: Number(idRol)
+      idRol: 1 // Rol de usuario normal por defecto
     };
 
     setIsLoading(true);
@@ -105,10 +104,24 @@ export default function RegisterScreen({ navigation }) {
         <TextInput style={styles.input} value={edad} onChangeText={setEdad} keyboardType="numeric" />
 
         <Text style={styles.label}>Sexo</Text>
-        <TextInput style={styles.input} value={sexo} onChangeText={setSexo} />
-
-        <Text style={styles.label}>idRol</Text>
-        <TextInput style={styles.input} value={idRol} onChangeText={setIdRol} keyboardType="numeric" />
+        <View style={styles.sexoContainer}>
+          <TouchableOpacity 
+            style={[styles.sexoButton, sexo === 'Masculino' && styles.sexoButtonActive]}
+            onPress={() => setSexo('Masculino')}
+          >
+            <Text style={[styles.sexoButtonText, sexo === 'Masculino' && styles.sexoButtonTextActive]}>
+              Masculino
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.sexoButton, sexo === 'Femenino' && styles.sexoButtonActive]}
+            onPress={() => setSexo('Femenino')}
+          >
+            <Text style={[styles.sexoButtonText, sexo === 'Femenino' && styles.sexoButtonTextActive]}>
+              Femenino
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity style={[styles.registerButton, isLoading && styles.disabledButton]} onPress={handleRegister} disabled={isLoading}>
           {isLoading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.registerButtonText}>Registrarse</Text>}
@@ -126,8 +139,34 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#f8fafc' },
   container: { padding: 20 },
   title: { fontSize: 24, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
-  label: { fontSize: 14, marginTop: 8, marginBottom: 4 },
+  label: { fontSize: 14, marginTop: 8, marginBottom: 4, color: '#1e293b', fontWeight: '500' },
   input: { backgroundColor: '#fff', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: '#e2e8f0' },
+  sexoContainer: { 
+    flexDirection: 'row', 
+    gap: 10, 
+    marginBottom: 8 
+  },
+  sexoButton: { 
+    flex: 1, 
+    padding: 12, 
+    borderRadius: 8, 
+    borderWidth: 1, 
+    borderColor: '#e2e8f0', 
+    backgroundColor: '#fff',
+    alignItems: 'center'
+  },
+  sexoButtonActive: { 
+    backgroundColor: '#10b981', 
+    borderColor: '#10b981' 
+  },
+  sexoButtonText: { 
+    color: '#64748b', 
+    fontWeight: '500' 
+  },
+  sexoButtonTextActive: { 
+    color: '#fff', 
+    fontWeight: '600' 
+  },
   registerButton: { backgroundColor: '#10b981', padding: 14, borderRadius: 8, marginTop: 18, alignItems: 'center' },
   registerButtonText: { color: '#fff', fontWeight: '600' },
   disabledButton: { opacity: 0.6 },
