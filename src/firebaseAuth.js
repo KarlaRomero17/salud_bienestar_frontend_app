@@ -135,6 +135,8 @@ const firebaseAuth = {
         // Mapear datos de Firebase a formato de MongoDB
         const mongoUserData = {
           uid: user.uid,
+          // Backend expects `uuid` (unique index). Send both to be compatible.
+          uuid: user.uid,
           email: user.email,
           token: token,
           peso_actual: profileObj.peso || null,
