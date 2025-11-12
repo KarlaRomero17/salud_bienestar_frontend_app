@@ -74,7 +74,7 @@ const ForumScreen = () => {
               <Text style={styles.cardTitle}>{item.titulo}</Text>
 
               {/* Mostrar botones solo si el usuario logueado es el autor */}
-              {user && user.email === item.autor && (
+              {user && user.nombre === item.autor && (
                 <View style={styles.buttonContainer}>
                   <TouchableOpacity
                     onPress={() => navigation.navigate('NewPublication', { publicacion: item })}

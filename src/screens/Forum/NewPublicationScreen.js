@@ -54,7 +54,7 @@ export default function NewPublicationScreen() {
                 await axios.put(`${BASE_URL}/api/publicaciones/${publicacion._id}`, {
                     titulo,
                     contenido: content,
-                    autor: user?.email || ''
+                    autor: user?.nombre || ''
                 });
                 Alert.alert('Éxito', 'Publicación actualizada correctamente ✏️');
             } else {
@@ -62,7 +62,7 @@ export default function NewPublicationScreen() {
                 const nuevaPublicacion = {
                     titulo,
                     contenido: content,
-                    autor: user?.email || '',
+                    autor: user?.nombre || '',
                 };
                 await axios.post(`${BASE_URL}/api/publicaciones`, nuevaPublicacion);
                 Alert.alert('Éxito', 'Publicación creada correctamente 🎉');
@@ -90,7 +90,7 @@ export default function NewPublicationScreen() {
                             <Text style={styles.label}>Autor</Text>
                             <TextInput
                                 style={[styles.input, { backgroundColor: '#e5e7eb' }]}
-                                value={user?.email || ''}
+                                value={user?.nombre || ''}
                                 editable={false}
                             />
                         </View>

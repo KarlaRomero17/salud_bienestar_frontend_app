@@ -69,7 +69,7 @@ export default function PublicationDetailsScreen() {
         try {
             const nueva = {
                 contenido: comment,
-                autor: user?.email || '',
+                autor: user?.nombre || '',
                 publicacionId: data._id,
             };
             // Enviar al backend
@@ -133,7 +133,7 @@ export default function PublicationDetailsScreen() {
                                         <Text style={styles.commentText}>{item.contenido}</Text>
 
                                         {/* Botones de editar y eliminar solo si es el mismo usuario */}
-                                        {user.email === item.autor && (
+                                        {user.nombre === item.autor && (
                                             <View style={{ flexDirection: 'row', gap: 8 }}>
                                                 <TouchableOpacity onPress={() => eliminarComentario(item._id)}>
                                                     <Ionicons name="trash-outline" size={20} color='red' />
