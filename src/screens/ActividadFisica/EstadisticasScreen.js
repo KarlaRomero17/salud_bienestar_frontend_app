@@ -4,18 +4,16 @@ import {
     TouchableOpacity, FlatList, Platform, Dimensions 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
 import DateTimePicker from '@react-native-community/datetimepicker'; 
 import { LineChart } from 'react-native-chart-kit'; 
 import { useFocusEffect } from '@react-navigation/native';
 import { AuthContext } from '../../context/AuthContext'; 
-import { SERVER_URI } from '@env';
+import secureApiClient from '../../api/secureApiClient';
 
 const screenWidth = Dimensions.get('window').width;
 
-// ✅ Usar variable de entorno en lugar de IP hardcodeada
-const BASE_URL = `${SERVER_URI}/api`; 
-const API_URL_ESTADISTICAS = `${BASE_URL}/actividad/estadisticas`; 
+// ✅ Usar cliente seguro con token automático
+const API_URL_ESTADISTICAS = '/actividad/estadisticas'; 
 
 const COLORS = {
     primary: '#2a8c4a', secondary: '#64c27b', light: '#9bfab0', 
@@ -141,7 +139,7 @@ const EstadisticasScreen = () => {
         if (fechaFin) params.fechaFin = formatDateToQuery(fechaFin);
 
         try {
-            const response = await axios.get(`${API_URL_ESTADISTICAS}/${idUsuario}`, { params });
+            const response = await secureApiClient.get(`${API_URL_ESTADISTICAS}/${idUsuario}`, { params });
             const data = response.data;
             
             setEstadisticas(data);

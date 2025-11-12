@@ -12,12 +12,11 @@ import {
     ActivityIndicator, 
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker'; 
-import axios from 'axios'; 
 import { Ionicons } from '@expo/vector-icons'; 
-import { SERVER_URI } from '@env';
+import secureApiClient from '../../api/secureApiClient';
 
-// ✅ Usar variable de entorno en lugar de IP hardcodeada
-const BASE_URL = `${SERVER_URI}/api/actividad`;
+// ✅ Usar cliente seguro con token automático
+const BASE_URL = '/actividad';
 const API_URL_SESION = `${BASE_URL}/sesion`; // Endpoint para el PUT de actualización
 
 const COLORS = { 
@@ -71,7 +70,7 @@ export default function AgregarActividadScreen({ navigation, route }) {
     const fetchCatalogo = useCallback(async () => {
         setIsLoadingData(true);
         try {
-            const response = await axios.get(`${BASE_URL}/catalogo`);
+            const response = await secureApiClient.get(`${BASE_URL}/catalogo`);
             setCatalogo(response.data);
             
             if (response.data.tiposActividad.length > 0) {
@@ -182,7 +181,7 @@ export default function AgregarActividadScreen({ navigation, route }) {
         setIsSaving(true); 
         try {
             // Llama a PUT /api/actividad/sesion/:sesionId con el array para $push
-            await axios.put(`${API_URL_SESION}/${sesionId}`, {
+            await secureApiClient.put(`${API_URL_SESION}/${sesionId}`, {
                 actividades: [dataToSave] 
             });
 
