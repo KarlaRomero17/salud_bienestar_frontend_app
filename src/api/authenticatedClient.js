@@ -1,142 +1,119 @@
+// SALUD_BIENESTAR_FRONTEND_APP/src/api/authenticatedClient.js
+
 import axios from 'axios';
-import tokenManager from '../utils/tokenManager';
+import tokenManager from '../utils/tokenManager'; // Asegúrate de que esta ruta a tu tokenManager sea correcta
 
-/**
- * Cliente HTTP configurado para usar tokens de Firebase
- * Automáticamente agrega el token de autenticación a cada petición
- */
 
-// Crear instancia de axios con configuración base
-const apiClient = axios.create({
-  baseURL: 'https://appsaludybienestar-b7b70-default-rtdb.firebaseio.com', // Tu Firebase Realtime Database
+
+// Dirección de tu base de datos en tiempo real de Firebase
+const FIREBASE_DATABASE_URL = 'https://appsaludybienestar-b7b70-default-rtdb.firebaseio.com';
+
+// Dirección de tu backend de Node.js 
+const BACKEND_API_URL = 'http://192.168.0.9:5000/api';
+
+
+
+const firebaseApiClient = axios.create({
+  baseURL: FIREBASE_DATABASE_URL,
   timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
+});
+
+// Interceptor para CADA petición a FIREBASE
+// Firebase RTDB necesita el token como un parámetro en la URL (?auth=TOKEN)
+firebaseApiClient.interceptors.request.use(async (config) => {
+  try {
+    const token = await tokenManager.getToken();
+    if (token) {
+      if (!config.params) {
+        config.params = {};
+      }
+      config.params.auth = token; // Así es como Firebase RTDB se autentica
+    }
+    return config;
+  } catch (error) {
+    console.error('Error en interceptor de request de Firebase:', error);
+    return Promise.reject(error);
   }
 });
 
-// Interceptor para agregar el token a cada petición
-apiClient.interceptors.request.use(
-  async (config) => {
-    try {
-      // Obtener token actual (se renueva automáticamente si es necesario)
-      const token = await tokenManager.getToken();
-      
-      if (token) {
-        // Agregar token al header Authorization
-        config.headers.Authorization = `Bearer ${token}`;
-        
-        // O agregarlo como parámetro de query (para Firebase Realtime Database)
-        if (!config.params) {
-          config.params = {};
-        }
-        config.params.auth = token;
-      }
-      
-      return config;
-    } catch (error) {
-      console.error('Error en interceptor de request:', error);
-      return config;
-    }
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
 
-// Interceptor para manejar respuestas y errores
-apiClient.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  async (error) => {
-    const originalRequest = error.config;
-    
-    // Si el error es 401 (no autorizado) y no hemos reintentado
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      
-      try {
-        // Intentar renovar el token
-        console.log('Token expirado, renovando...');
-        const newToken = await tokenManager.refreshToken();
-        
-        if (newToken) {
-          // Actualizar el header y reintentar la petición
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          if (originalRequest.params) {
-            originalRequest.params.auth = newToken;
-          }
-          return apiClient(originalRequest);
+
+const backendApiClient = axios.create({
+  baseURL: BACKEND_API_URL,
+  timeout: 10000,
+});
+
+
+backendApiClient.interceptors.request.use(async (config) => {
+    try {
+        const token = await tokenManager.getToken();
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
         }
-      } catch (refreshError) {
-        console.error('Error al renovar token:', refreshError);
-        // Aquí podrías redirigir al login si el token no se puede renovar
-        return Promise.reject(refreshError);
-      }
+        return config;
+    } catch (error) {
+        console.error('Error en interceptor de request del Backend:', error);
+        return Promise.reject(error);
     }
-    
-    return Promise.reject(error);
-  }
-);
+});
+
+
 
 /**
- * Ejemplo de funciones para usar con el token
+ * Funciones para interactuar con la base de datos de Firebase (perfiles de usuario, etc.)
  */
-export const authenticatedAPI = {
-  // GET: Obtener datos del usuario
+export const firebaseApi = {
+  /**
+   * Obtiene el perfil de un usuario y su clave única de RTDB a partir de su UID de autenticación.
+   * @param {string} uid El UID del usuario de Firebase Authentication.
+   * @returns {object|null} El perfil del usuario con su clave de RTDB o null si no se encuentra.
+   */
   async getUserProfile(uid) {
     try {
-      const response = await apiClient.get(`/usuarios.json?orderBy="idAuth"&equalTo="${uid}"`);
-      return response.data;
+      const response = await firebaseApiClient.get(`/usuarios.json?orderBy="idAuth"&equalTo="${uid}"`);
+      if (response.data && Object.keys(response.data).length > 0) {
+        const rtdbKey = Object.keys(response.data)[0];
+        const userProfile = response.data[rtdbKey];
+        return { rtdbKey, ...userProfile };
+      }
+      return null;
     } catch (error) {
-      console.error('Error al obtener perfil:', error);
+      console.error('Firebase API Error - getUserProfile:', error.response?.data || error.message);
       throw error;
     }
   },
 
-  // POST: Crear nuevo dato
-  async createData(endpoint, data) {
+  /**
+   * Actualiza el plan de comida de un usuario en Firebase RTDB.
+   * @param {string} rtdbKey La clave del documento del usuario en RTDB.
+   * @param {object} planData El objeto con el ID del plan. Ej: { planComidaId: '...' } o { planComidaId: null }
+   */
+  async updateUserPlan(rtdbKey, planData) {
     try {
-      const response = await apiClient.post(`/${endpoint}.json`, data);
+      // Usamos PATCH para actualizar solo los campos especificados sin borrar el resto del perfil
+      const response = await firebaseApiClient.patch(`/usuarios/${rtdbKey}.json`, planData);
       return response.data;
     } catch (error) {
-      console.error('Error al crear dato:', error);
+      console.error('Firebase API Error - updateUserPlan:', error.response?.data || error.message);
       throw error;
-    }
-  },
-
-  // PUT: Actualizar dato existente
-  async updateData(endpoint, id, data) {
-    try {
-      const response = await apiClient.put(`/${endpoint}/${id}.json`, data);
-      return response.data;
-    } catch (error) {
-      console.error('Error al actualizar dato:', error);
-      throw error;
-    }
-  },
-
-  // DELETE: Eliminar dato
-  async deleteData(endpoint, id) {
-    try {
-      const response = await apiClient.delete(`/${endpoint}/${id}.json`);
-      return response.data;
-    } catch (error) {
-      console.error('Error al eliminar dato:', error);
-      throw error;
-    }
-  },
-
-  // Ejemplo: Verificar si el token es válido haciendo una petición simple
-  async verifyToken() {
-    try {
-      const response = await apiClient.get('/.json?shallow=true');
-      return { valid: true, data: response.data };
-    } catch (error) {
-      return { valid: false, error };
     }
   }
 };
 
-export default apiClient;
+/**
+ * Funciones para interactuar con nuestro backend de Node.js (planes de comida, etc.)
+ */
+export const backendApi = {
+  /**
+   * Obtiene la lista completa de planes de comida desde nuestro servidor.
+   */
+  async getPlanesComida() {
+    try {
+      const response = await backendApiClient.get('/planes-comida');
+      return response.data;
+    } catch (error) {
+      console.error('Backend API Error - getPlanesComida:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+};

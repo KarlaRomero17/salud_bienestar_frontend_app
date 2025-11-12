@@ -1,59 +1,37 @@
-// Firebase Auth usando Web SDK (compatible con Expo Go)
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// SALUD_BIENESTAR_FRONTEND_APP/src/utils/firebaseAuth.js 
 import { getApps, initializeApp } from 'firebase/app';
-import { createUserWithEmailAndPassword, signOut as firebaseSignOut, getAuth, initializeAuth, signInWithEmailAndPassword } from 'firebase/auth';
-import { getDatabase, push, ref, set } from 'firebase/database';
+import {
+  getAuth,
+  initializeAuth,
+  getReactNativePersistence, // <-- Importamos la función oficial de Firebase
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut
+} from 'firebase/auth';
+import { getDatabase, ref, push, set } from 'firebase/database';
+import AsyncStorage from '@react-native-async-storage/async-storage'; 
 
 // Importar configuración
-import firebaseConfig from './firebaseWeb';
+import firebaseConfig from './firebaseWeb'; 
 
-// Inicializar Firebase solo si no existe
+// --- INICIALIZACIÓN MODERNA Y CORRECTA ---
+
 let app;
-if (getApps().length === 0) {
+// Inicializar Firebase solo si no se ha hecho antes
+if (!getApps().length) {
   app = initializeApp(firebaseConfig);
 } else {
   app = getApps()[0];
 }
 
-// Inicializar Auth solo si no existe
-let auth;
-try {
-  auth = getAuth(app);
-} catch (error) {
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage)
-  });
-}
+// Inicializa Auth con persistencia usando la función oficial
+const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage)
+});
 
 const db = getDatabase(app);
 
-// Implementación de getReactNativePersistence para Firebase v12.5.0
-async function getReactNativePersistence(storage) {
-  return {
-    type: 'LOCAL',
-    async getItem(key) {
-      try {
-        return await storage.getItem(key);
-      } catch (error) {
-        return null;
-      }
-    },
-    async setItem(key, value) {
-      try {
-        await storage.setItem(key, value);
-      } catch (error) {
-        console.warn('Error setting item in storage:', error);
-      }
-    },
-    async removeItem(key) {
-      try {
-        await storage.removeItem(key);
-      } catch (error) {
-        console.warn('Error removing item from storage:', error);
-      }
-    }
-  };
-}
+// --- lógica de autenticación  ---
 
 const firebaseAuth = {
   async signUpWithEmail(email, password, profileObj = {}) {
@@ -65,19 +43,18 @@ const firebaseAuth = {
       try {
         const usuariosRef = ref(db, 'usuarios');
         const newRef = push(usuariosRef);
-        
-        // Generar fechaRegistro si no existe
+
         const d = new Date();
         const pad = (n) => (n < 10 ? `0${n}` : `${n}`);
         const fechaRegistro = profileObj.fechaRegistro || `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
-        
-        const profileToSave = { 
-          ...profileObj, 
-          email, 
-          fechaRegistro, 
-          idAuth: user.uid 
+
+        const profileToSave = {
+          ...profileObj,
+          email,
+          fechaRegistro,
+          idAuth: user.uid
         };
-        
+
         await set(newRef, profileToSave);
       } catch (dbErr) {
         console.warn('No se pudo guardar usuario en Realtime DB:', dbErr);
@@ -105,7 +82,7 @@ const firebaseAuth = {
 
   async signOut() {
     try {
-      await firebaseSignOut(auth);
+      await firebaseSignOut(auth); 
     } catch (error) {
       console.error('signOut error', error);
       throw error;
@@ -113,4 +90,6 @@ const firebaseAuth = {
   }
 };
 
+// Exportamos tanto el objeto 'auth' 
+export { auth };
 export default firebaseAuth;
