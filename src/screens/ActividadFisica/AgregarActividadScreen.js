@@ -1,424 +1,514 @@
-// src/screens/ActividadFisica/AgregarActividadScreen.js (FINAL Y CORREGIDO)
 
-import React, { useState, useEffect } from 'react'; 
+import React, { useState, useEffect, useCallback } from 'react'; 
 import { 
     View, 
     Text, 
     StyleSheet, 
-    ScrollView, // <--- SCROLLVIEW PADRE
+    ScrollView, 
     TouchableOpacity, 
     TextInput, 
     Switch, 
     Alert,
-    // Eliminamos la importación de FlatList ya que la estamos reemplazando
+    ActivityIndicator, 
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker'; 
-import { Ionicons } from '@expo/vector-icons';
+import axios from 'axios'; 
+import { Ionicons } from '@expo/vector-icons'; 
+import { SERVER_URI } from '@env';
 
-// --- Paleta de Colores ---
-const COLORS = {
-    primary: '#2a8c4a',      
-    secondary: '#64c27b',    
-    light: '#9bfab0',        
-    lighter: '#d0fdd7',      
-    white: '#ffffff',        
-    text: '#333333',         
-    error: '#e74c3c',        
-};
+// ✅ Usar variable de entorno en lugar de IP hardcodeada
+const BASE_URL = `${SERVER_URI}/api/actividad`;
+const API_URL_SESION = `${BASE_URL}/sesion`; // Endpoint para el PUT de actualización
+
+const COLORS = { 
+    primary: '#2a8c4a', secondary: '#64c27b', light: '#9bfab0', 
+    lighter: '#d0fdd7', white: '#ffffff', text: '#333333', error: '#e74c3c', 
+}; 
 
 // Factores de estimación calórica (Kcal por unidad base - simplificado)
-const CALORIE_FACTORS = {
+const CALORIE_FACTORS = { 
     ACTIVITY_TIME: 6.0, 
     RUNNING_DISTANCE: 65.0, 
-    WEIGHT_TRAINING_TIME: 8.0,
-    BODYWEIGHT_TIME: 7.0,
+    WEIGHT_TRAINING_TIME: 8.0, 
+    BODYWEIGHT_TIME: 7.0, 
 };
 
-import { 
-    TIPOS_ACTIVIDAD_FISICA, 
-    ENTRENAMIENTOS_PREDEFINIDOS 
-} from '../../constants/ActividadData'; 
-
-// Lógica para combinar categorías sin pesas
-const getEjerciciosSinPesas = () => [
-    ...ENTRENAMIENTOS_PREDEFINIDOS['Fuerza - Peso Corporal (Calistenia)'],
-    ...ENTRENAMIENTOS_PREDEFINIDOS['Cardiovascular y HIIT'],
-    ...ENTRENAMIENTOS_PREDEFINIDOS['Movilidad, Core y Estiramientos'],
-    ...ENTRENAMIENTOS_PREDEFINIDOS['Rendimiento Específico'],
-    ...ENTRENAMIENTOS_PREDEFINIDOS['Rehabilitación / Terapia Física'],
-].sort();
-
-// Lógica para combinar categorías con pesas
-const getEjerciciosConPesas = () => [
-    ...ENTRENAMIENTOS_PREDEFINIDOS['Fuerza - Tren Superior (Pesas)'],
-    ...ENTRENAMIENTOS_PREDEFINIDOS['Fuerza - Tren Inferior (Pesas)'],
-].sort();
+// Función de utilidad para manejar IDs locales que ya no es necesaria
+// Se mantiene pero no se usa en el guardado final para evitar confusiones
+// const generateLocalId = () => {
+//     return Date.now().toString(36) + Math.random().toString(36).substring(2);
+// };
 
 
+// 🚨 CORRECCIÓN 1: Se añade 'route' para obtener el sesionId
 export default function AgregarActividadScreen({ navigation, route }) {
-    const { onGoBack } = route.params;
-
-    const [tipoRegistro, setTipoRegistro] = useState('Actividad Física'); 
-    const [tipoActividad, setTipoActividad] = useState(TIPOS_ACTIVIDAD_FISICA[0].value);
+    
+    const { sesionId } = route.params || {}; // Se extrae el ID de la sesión
+    
+    const [selectedTipo, setSelectedTipo] = useState('Actividad Física'); 
+    
+    // --- Estado para Actividad Física ---
+    const [actividadSeleccionada, setActividadSeleccionada] = useState(null);
     const [distancia, setDistancia] = useState('');
-    const [tiempo, setTiempo] = useState(''); 
-    const [esConPesas, setEsConPesas] = useState(false);
-    const [ejercicioSeleccionado, setEjercicioSeleccionado] = useState('');
+    const [tiempo, setTiempo] = useState('');
+    
+    // --- Estado para Entrenamiento ---
+    const [entrenamientoSeleccionado, setEntrenamientoSeleccionado] = useState(null);
     const [series, setSeries] = useState('');
     const [repeticiones, setRepeticiones] = useState('');
-    const [peso, setPeso] = useState(''); 
-    const [busquedaEjercicio, setBusquedaEjercicio] = useState(''); 
-    const [caloriasManual, setCaloriasManual] = useState('');
-    const [caloriasCalculadas, setCaloriasCalculadas] = useState(0);
+    const [peso, setPeso] = useState('');
+    const [conPesas, setConPesas] = useState(false);
 
-    // --- LÓGICA DE CÁLCULO Y FILTRADO (Se mantiene igual) ---
-    const calculateApproxCalories = (currentTipoActividad, currentDistancia, currentTime, currentEsConPesas) => {
-        let baseCalories = 0;
-        const distanceVal = parseFloat(currentDistancia) || 0;
-        const timeVal = parseFloat(currentTime) || 0;
-        
-        if (tipoRegistro === 'Actividad Física') {
-            if (timeVal > 0) {
-                if (['correr', 'trotar'].includes(currentTipoActividad) && distanceVal > 0) {
-                     baseCalories = distanceVal * CALORIE_FACTORS.RUNNING_DISTANCE;
-                } else {
-                    baseCalories = timeVal * CALORIE_FACTORS.ACTIVITY_TIME;
-                }
+    const [isLoadingData, setIsLoadingData] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    const [catalogo, setCatalogo] = useState({
+        tiposActividad: [], 
+        entrenamientosPredefinidos: [], 
+    });
+
+
+    // OBTENER CATÁLOGO DE DATOS DEL BACKEND (Sin cambios)
+    const fetchCatalogo = useCallback(async () => {
+        setIsLoadingData(true);
+        try {
+            const response = await axios.get(`${BASE_URL}/catalogo`);
+            setCatalogo(response.data);
+            
+            if (response.data.tiposActividad.length > 0) {
+                setActividadSeleccionada(response.data.tiposActividad[0].value);
             }
-        } else { 
-            if (timeVal > 0) {
-                if (currentEsConPesas) {
-                    baseCalories = timeVal * CALORIE_FACTORS.WEIGHT_TRAINING_TIME;
-                } else {
-                    baseCalories = timeVal * CALORIE_FACTORS.BODYWEIGHT_TIME;
-                }
+            if (response.data.entrenamientosPredefinidos.length > 0) {
+                setEntrenamientoSeleccionado(response.data.entrenamientosPredefinidos[0]);
             }
+        } catch (error) {
+            console.error("Error fetching activity catalog:", error);
+            Alert.alert("Error de Conexión", "No se pudo cargar el catálogo de actividades.");
+        } finally {
+            setIsLoadingData(false);
         }
-        return Math.round(baseCalories);
-    };
+    }, []);
 
     useEffect(() => {
-        const calculated = calculateApproxCalories(tipoActividad, distancia, tiempo, esConPesas);
-        setCaloriasCalculadas(calculated);
-    }, [tipoRegistro, tipoActividad, distancia, tiempo, esConPesas]);
+        fetchCatalogo();
+    }, [fetchCatalogo]);
 
-    const getCaloriasValue = () => caloriasManual ? caloriasManual : (caloriasCalculadas > 0 ? caloriasCalculadas.toString() : '');
-    
-    const getEjerciciosBase = () => esConPesas ? getEjerciciosConPesas() : getEjerciciosSinPesas();
-    
-    const ejerciciosFiltrados = getEjerciciosBase().filter(ej => 
-        ej.toLowerCase().includes(busquedaEjercicio.toLowerCase())
-    );
-    
-    const handleGuardar = () => {
-        // ... (Lógica de handleGuardar se mantiene igual)
-        const caloriasFinal = getCaloriasValue();
-        let nuevoRegistro = {
-            tipo: tipoRegistro,
-            calorias: caloriasFinal ? parseFloat(caloriasFinal) : null,
-            fecha: new Date().toISOString(),
-        };
 
-         if (tipoRegistro === 'Actividad Física') {
-             if (!tipoActividad || !distancia || !tiempo) {
-                Alert.alert('Error', 'Por favor, complete todos los campos de Actividad Física.');
-                return;
-            }
-            nuevoRegistro = {
-                ...nuevoRegistro,
-                nombre: TIPOS_ACTIVIDAD_FISICA.find(t => t.value === tipoActividad).label,
-                tipoActividad: tipoActividad,
-                distancia: parseFloat(distancia),
-                tiempo: parseFloat(tiempo), 
-            };
-        } else { 
-            if (!ejercicioSeleccionado) {
-                Alert.alert('Error', 'Por favor, seleccione un ejercicio de entrenamiento.');
-                return;
-            }
+    // FUNCIÓN DE ESTIMACIÓN DE CALORÍAS (Sin cambios)
+    const estimarCalorias = (tipo) => {
+        let calorias = 0;
+        
+        if (tipo === 'Actividad Física') {
+            const t = parseFloat(tiempo) || 0;
+            const d = parseFloat(distancia) || 0;
             
-            nuevoRegistro = {
-                ...nuevoRegistro,
-                nombre: ejercicioSeleccionado,
-                conPesas: esConPesas,
-            };
+            if (d > 0) {
+                calorias += d * CALORIE_FACTORS.RUNNING_DISTANCE; 
+            } else if (t > 0) {
+                calorias += t * CALORIE_FACTORS.ACTIVITY_TIME;
+            }
+
+        } else if (tipo === 'Entrenamiento') {
+            const t = parseFloat(tiempo) || 0; 
             
-            if (esConPesas) {
-                if (!series || !repeticiones || !peso) {
-                    Alert.alert('Error', 'Por favor, complete series, repeticiones y peso (kg).');
-                    return;
+            if (t > 0) {
+                if (conPesas) {
+                    calorias += t * CALORIE_FACTORS.WEIGHT_TRAINING_TIME;
+                } else {
+                    calorias += t * CALORIE_FACTORS.BODYWEIGHT_TIME;
                 }
-                nuevoRegistro = {
-                    ...nuevoRegistro,
-                    series: parseInt(series),
-                    repeticiones: parseInt(repeticiones),
-                    peso: parseFloat(peso),
+            } else {
+                const s = parseFloat(series) || 0;
+                const r = parseFloat(repeticiones) || 0;
+                calorias += s * r * 0.5;
+            }
+        }
+        
+        return Math.max(0, calorias); 
+    };
+
+
+    // 🚨 CORRECCIÓN CLAVE: Lógica para enviar a la API y navegar
+    const handleGuardarActividad = async () => {
+        let nombreActividad;
+        let actividadValida = false;
+        let dataToSave = { tipo: selectedTipo };
+
+        if (!sesionId) {
+            Alert.alert("Error", "No se encontró el ID de la sesión. Vuelve a la pantalla anterior y crea una sesión primero.");
+            return;
+        }
+
+        // 1. CONSTRUIR OBJETO DE DATOS
+        if (selectedTipo === 'Actividad Física') {
+            nombreActividad = catalogo.tiposActividad.find(t => t.value === actividadSeleccionada)?.label;
+            
+            if ((parseFloat(tiempo) || 0) > 0 || (parseFloat(distancia) || 0) > 0) {
+                actividadValida = true;
+                dataToSave = {
+                    ...dataToSave,
+                    nombre: nombreActividad || 'Actividad Desconocida',
+                    tiempo: parseFloat(tiempo) || 0,
+                    distancia: parseFloat(distancia) || 0,
+                    tipoActividad: actividadSeleccionada, 
                 };
-            } else { 
-                if (!tiempo) {
-                     Alert.alert('Error', 'Por favor, ingrese el tiempo de duración.');
-                    return;
-                }
-                nuevoRegistro = {
-                    ...nuevoRegistro,
-                    tiempo: parseFloat(tiempo), 
+            }
+
+        } else if (selectedTipo === 'Entrenamiento') {
+            nombreActividad = entrenamientoSeleccionado;
+
+            if ((parseFloat(series) || 0) > 0 || (parseFloat(repeticiones) || 0) > 0 || (parseFloat(tiempo) || 0) > 0) {
+                actividadValida = true;
+                dataToSave = {
+                    ...dataToSave,
+                    nombre: nombreActividad || 'Entrenamiento Desconocido',
+                    conPesas: conPesas,
+                    series: parseInt(series) || 0,
+                    repeticiones: parseInt(repeticiones) || 0,
+                    peso: parseFloat(peso) || 0,
+                    tiempo: parseFloat(tiempo) || 0, 
                 };
             }
         }
         
-        onGoBack(nuevoRegistro); 
-        navigation.goBack(); 
+        // 2. VALIDACIÓN FINAL
+        if (!actividadValida) {
+            Alert.alert("Error de Datos", "Debes ingresar datos para la actividad.");
+            return;
+        }
+        
+        dataToSave.calorias = estimarCalorias(selectedTipo);
+
+        // 3. LLAMADA A LA API (PERSISTENCIA)
+        setIsSaving(true); 
+        try {
+            // Llama a PUT /api/actividad/sesion/:sesionId con el array para $push
+            await axios.put(`${API_URL_SESION}/${sesionId}`, {
+                actividades: [dataToSave] 
+            });
+
+            // Éxito: Navegar de vuelta para que NuevaSesionScreen recargue la lista de la DB
+            Alert.alert("Éxito", "Actividad guardada. Recargando sesión.");
+            navigation.navigate('NuevaSesion');
+
+        } catch (error) {
+            Alert.alert("Error", "No se pudo guardar la actividad en la base de datos. Asegúrate de que el backend esté corriendo.");
+            console.error("Error al guardar actividad:", error.response?.data || error);
+        } finally {
+            setIsSaving(false);
+        }
     };
 
-    return (
-        // SCROLLVIEW PADRE: Permite desplazar todo el formulario
-        <ScrollView style={styles.container}>
-            <Text style={styles.header}>Seleccionar Tipo de Registro</Text>
-            
-            {/* Toggle Actividad Física / Entrenamiento (Se mantiene igual) */}
-            <View style={styles.toggleContainer}>
-                <TouchableOpacity
-                    style={[styles.toggleButton, tipoRegistro === 'Actividad Física' && styles.toggleActive]}
-                    onPress={() => { setTipoRegistro('Actividad Física'); setEjercicioSeleccionado(''); setBusquedaEjercicio(''); }}
-                >
-                    <Text style={[styles.toggleText, tipoRegistro === 'Actividad Física' && styles.toggleTextActive]}>🏃‍♀️ Actividad Física</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.toggleButton, tipoRegistro === 'Entrenamiento' && styles.toggleActive]}
-                    onPress={() => { setTipoRegistro('Entrenamiento'); setTipoActividad(TIPOS_ACTIVIDAD_FISICA[0].value); }}
-                >
-                    <Text style={[styles.toggleText, tipoRegistro === 'Entrenamiento' && styles.toggleTextActive]}>💪 Entrenamiento</Text>
-                </TouchableOpacity>
-            </View>
 
-            {/* --- Formulario de Actividad Física (Se mantiene igual) --- */}
-            {tipoRegistro === 'Actividad Física' && (
+    // El resto del código de renderizado y estilos se mantiene igual.
+    // ...
+  
+    const renderFormulario = () => {
+        if (selectedTipo === 'Actividad Física') {
+            return (
                 <View style={styles.formSection}>
                     <Text style={styles.label}>Tipo de Actividad</Text>
                     <View style={styles.pickerContainer}>
                         <Picker
-                            selectedValue={tipoActividad}
-                            onValueChange={(itemValue) => setTipoActividad(itemValue)}
+                            selectedValue={actividadSeleccionada}
+                            onValueChange={(itemValue) => setActividadSeleccionada(itemValue)}
                             style={styles.picker}
-                            itemStyle={{ color: COLORS.text }}
                         >
-                            {TIPOS_ACTIVIDAD_FISICA.map(t => (
-                                <Picker.Item key={t.value} label={t.label} value={t.value} />
+                            {catalogo.tiposActividad.map((tipo) => (
+                                <Picker.Item key={tipo.value} label={tipo.label} value={tipo.value} />
                             ))}
                         </Picker>
                     </View>
                     
                     <Text style={styles.label}>Distancia (km)</Text>
-                    <TextInput style={styles.input} keyboardType="numeric" value={distancia} onChangeText={setDistancia} placeholder="Ej: 5.5" placeholderTextColor="#999"/>
-                    <Text style={styles.label}>Tiempo (minutos)</Text>
-                    <TextInput style={styles.input} keyboardType="numeric" value={tiempo} onChangeText={setTiempo} placeholder="Ej: 30" placeholderTextColor="#999"/>
-                </View>
-            )}
+                    <TextInput
+                        style={styles.input}
+                        value={distancia}
+                        onChangeText={setDistancia}
+                        keyboardType="numeric"
+                        placeholder="Ej: 5.5"
+                    />
 
-            {/* --- Formulario de Entrenamiento --- */}
-            {tipoRegistro === 'Entrenamiento' && (
+                    <Text style={styles.label}>Tiempo (minutos)</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={tiempo}
+                        onChangeText={setTiempo}
+                        keyboardType="numeric"
+                        placeholder="Ej: 30"
+                    />
+                    <Text style={styles.suggestionText}>Introduce al menos uno de los dos.</Text>
+                </View>
+            );
+        } else {
+            return (
                 <View style={styles.formSection}>
-                    {/* Filtro de Pesas (Se mantiene igual) */}
+                    <Text style={styles.label}>Ejercicio/Entrenamiento</Text>
+                    <View style={styles.pickerContainer}>
+                        <Picker
+                            selectedValue={entrenamientoSeleccionado}
+                            onValueChange={(itemValue) => setEntrenamientoSeleccionado(itemValue)}
+                            style={styles.picker}
+                        >
+                            {catalogo.entrenamientosPredefinidos.map((entrenamiento, index) => (
+                                <Picker.Item key={index} label={entrenamiento} value={entrenamiento} />
+                            ))}
+                        </Picker>
+                    </View>
+
                     <View style={styles.switchRow}>
                         <Text style={styles.label}>Con Pesas/Resistencia</Text>
-                        <Switch onValueChange={(value) => { setEsConPesas(value); setEjercicioSeleccionado(''); setBusquedaEjercicio(''); }} value={esConPesas} trackColor={{ false: COLORS.light, true: COLORS.secondary }} thumbColor={esConPesas ? COLORS.primary : COLORS.white} />
+                        <Switch
+                            trackColor={{ false: COLORS.light, true: COLORS.secondary }}
+                            thumbColor={conPesas ? COLORS.primary : COLORS.white}
+                            onValueChange={setConPesas}
+                            value={conPesas}
+                        />
                     </View>
-                    
-                    {/* Buscador de Ejercicio (Se mantiene igual) */}
-                    <Text style={styles.label}>Buscar Ejercicio</Text>
-                    <TextInput style={styles.input} value={busquedaEjercicio} onChangeText={setBusquedaEjercicio} placeholder="Escribe el nombre del ejercicio..." placeholderTextColor="#999"/>
-
-                    {/* Lista de Resultados de Búsqueda con Scroll Interno (CORREGIDO) */}
-                    <View style={styles.chipsContainer}>
-                        {/* 🟢 USAMOS SCROLLVIEW SIMPLE CON PROPIEDADES DE SCROLL ANIDADO */}
-                        <ScrollView
-                            nestedScrollEnabled={true} 
-                            contentContainerStyle={styles.rowWrapper} // Aplica el flex-wrap a los elementos
-                            showsVerticalScrollIndicator={true}
-                        >
-                            {ejerciciosFiltrados.length > 0 ? (
-                                ejerciciosFiltrados.map(item => (
-                                    <TouchableOpacity
-                                        key={item}
-                                        style={[
-                                            styles.chip,
-                                            ejercicioSeleccionado === item && styles.chipSelected,
-                                        ]}
-                                        onPress={() => setEjercicioSeleccionado(item)}
-                                    >
-                                        <Text style={[
-                                            styles.chipText,
-                                            ejercicioSeleccionado === item && styles.chipTextSelected,
-                                        ]}>{item}</Text>
-                                    </TouchableOpacity>
-                                ))
-                            ) : (
-                                <Text style={styles.emptySearchText}>No se encontraron ejercicios con ese nombre.</Text>
-                            )}
-                        </ScrollView>
-                    </View>
-                    
-                    {/* Mostrar Ejercicio Seleccionado y Campos Específicos (Se mantiene igual) */}
-                    {ejercicioSeleccionado ? (
-                        <View style={styles.selectedView}>
-                            <Text style={styles.selectedLabel}>**Ejercicio Seleccionado:**</Text>
-                            <Text style={styles.selectedValueText}>{ejercicioSeleccionado}</Text>
-                        </View>
-                    ) : (
-                        <View style={styles.placeholderSelectedView}>
-                            <Text style={styles.placeholderText}>Selecciona un ejercicio de la lista superior.</Text>
-                        </View>
-                    )}
-
 
                     <View style={styles.detailInputs}>
-                        {esConPesas ? (
+                        <Text style={styles.label}>Series</Text>
+                        <TextInput
+                            style={styles.input}
+                            value={series}
+                            onChangeText={setSeries}
+                            keyboardType="numeric"
+                            placeholder="Ej: 3"
+                        />
+                        <Text style={styles.label}>Repeticiones por Serie</Text>
+                        <TextInput
+                            style={styles.input}
+                            value={repeticiones}
+                            onChangeText={setRepeticiones}
+                            keyboardType="numeric"
+                            placeholder="Ej: 10"
+                        />
+                        {conPesas && (
                             <>
-                                <Text style={styles.label}>Series</Text>
-                                <TextInput style={styles.input} keyboardType="numeric" value={series} onChangeText={setSeries} placeholder="Ej: 4" placeholderTextColor="#999"/>
-                                <Text style={styles.label}>Repeticiones</Text>
-                                <TextInput style={styles.input} keyboardType="numeric" value={repeticiones} onChangeText={setRepeticiones} placeholder="Ej: 12" placeholderTextColor="#999"/>
                                 <Text style={styles.label}>Peso (kg)</Text>
-                                <TextInput style={styles.input} keyboardType="numeric" value={peso} onChangeText={setPeso} placeholder="Ej: 20" placeholderTextColor="#999"/>
+                                <TextInput
+                                    style={styles.input}
+                                    value={peso}
+                                    onChangeText={setPeso}
+                                    keyboardType="numeric"
+                                    placeholder="Ej: 40.5"
+                                />
                             </>
-                        ) : (
-                            <View>
-                                <Text style={styles.label}>Tiempo (minutos)</Text>
-                                <TextInput style={styles.input} keyboardType="numeric" value={tiempo} onChangeText={setTiempo} placeholder="Ej: 30" placeholderTextColor="#999"/>
-                            </View>
                         )}
+                        <Text style={styles.label}>Tiempo Total (minutos)</Text>
+                        <TextInput
+                            style={styles.input}
+                            value={tiempo}
+                            onChangeText={setTiempo}
+                            keyboardType="numeric"
+                            placeholder="Opcional. Ej: 20"
+                        />
+                        <Text style={styles.suggestionText}>Opcional: Si no especificas series/reps, usa el tiempo total.</Text>
                     </View>
                 </View>
-            )}
+            );
+        }
+    };
 
-            {/* Campo común para Calorías (Se mantiene igual) */}
-            <Text style={styles.label}>Calorías Aprox. Gastadas {caloriasCalculadas > 0 && `(Est: ${caloriasCalculadas})`}</Text>
-            <TextInput
-                style={styles.input}
-                keyboardType="numeric"
-                value={getCaloriasValue()} 
-                onChangeText={text => setCaloriasManual(text)} 
-                placeholder="Ej: 300"
-                placeholderTextColor="#999"
-            />
-            {caloriasCalculadas > 0 && !caloriasManual && (
-                <Text style={styles.suggestionText}>El valor se auto-calculó. Puedes modificarlo si lo deseas.</Text>
-            )}
 
-            <TouchableOpacity style={styles.saveButton} onPress={handleGuardar}>
-                <Text style={styles.saveButtonText}>Guardar en Sesión</Text>
+ 
+    if (isLoadingData) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+                <Text style={styles.loadingText}>Cargando catálogo...</Text>
+            </View>
+        );
+    }
+
+    return (
+        <ScrollView style={styles.container}>
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>Añadir Actividad</Text>
+                <Text style={styles.headerSubtitle}>Selecciona el tipo de actividad y sus detalles.</Text>
+            </View>
+
+            <View style={styles.toggleContainer}>
+                <TouchableOpacity 
+                    style={[styles.toggleButton, selectedTipo === 'Actividad Física' && styles.toggleButtonActive]}
+                    onPress={() => setSelectedTipo('Actividad Física')}
+                    disabled={isSaving}
+                >
+                    <Text style={[styles.toggleText, selectedTipo === 'Actividad Física' && styles.toggleTextActive]}>
+                        <Ionicons name="walk" size={16} color={selectedTipo === 'Actividad Física' ? COLORS.white : COLORS.text} /> Actividad Física
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                    style={[styles.toggleButton, selectedTipo === 'Entrenamiento' && styles.toggleButtonActive]}
+                    onPress={() => setSelectedTipo('Entrenamiento')}
+                    disabled={isSaving}
+                >
+                    <Text style={[styles.toggleText, selectedTipo === 'Entrenamiento' && styles.toggleTextActive]}>
+                        <Ionicons name="barbell" size={16} color={selectedTipo === 'Entrenamiento' ? COLORS.white : COLORS.text} /> Entrenamiento
+                    </Text>
+                </TouchableOpacity>
+            </View>
+
+            {renderFormulario()}
+
+            <View style={styles.summaryContainer}>
+                <Text style={styles.summaryText}>
+                    Calorías Estimadas: 
+                    <Text style={styles.summaryValue}> {estimarCalorias(selectedTipo).toFixed(1)} kcal</Text>
+                </Text>
+            </View>
+
+            <TouchableOpacity 
+                style={[styles.saveButton, isSaving && {opacity: 0.6}]}
+                onPress={handleGuardarActividad}
+                disabled={isSaving}
+            >
+                {isSaving ? (
+                    <ActivityIndicator color={COLORS.white} />
+                ) : (
+                    <Text style={styles.saveButtonText}>Guardar en Sesión</Text>
+                )}
             </TouchableOpacity>
         </ScrollView>
     );
 }
 
-// Estilos
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20, backgroundColor: COLORS.white },
-    header: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, textAlign: 'center', color: COLORS.text },
-    toggleContainer: { flexDirection: 'row', marginBottom: 20, backgroundColor: COLORS.lighter, borderRadius: 8, padding: 4 },
-    toggleButton: { flex: 1, padding: 10, borderRadius: 8 },
-    toggleActive: { backgroundColor: COLORS.primary },
-    toggleText: { textAlign: 'center', fontWeight: '500', color: COLORS.text },
-    toggleTextActive: { color: COLORS.white, fontWeight: 'bold' },
-    formSection: { marginBottom: 20, padding: 15, backgroundColor: COLORS.lighter, borderRadius: 8, borderWidth: 1, borderColor: COLORS.light },
-    label: { fontSize: 16, fontWeight: '600', marginTop: 10, marginBottom: 5, color: COLORS.text },
-    input: { borderWidth: 1, borderColor: COLORS.light, padding: 10, borderRadius: 5, fontSize: 16, backgroundColor: COLORS.white, color: COLORS.text },
-    pickerContainer: { borderWidth: 1, borderColor: COLORS.light, borderRadius: 5, marginBottom: 10, backgroundColor: COLORS.white, overflow: 'hidden' },
-    picker: { height: 50, width: '100%', color: COLORS.text },
-    switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, paddingVertical: 5 },
-    saveButton: { backgroundColor: COLORS.primary, padding: 15, borderRadius: 8, marginTop: 20, marginBottom: 50, elevation: 3 },
-    saveButtonText: { color: COLORS.white, fontSize: 18, fontWeight: 'bold', textAlign: 'center' },
-    
-    // --- ESTILOS MODIFICADOS PARA EL SCROLL INTERNO ---
-    chipsContainer: {
-        marginTop: 10,
-        marginBottom: 15,
-        maxHeight: 220, // Limita la altura (4 filas)
-        borderWidth: 1,
-        borderColor: COLORS.light,
-        borderRadius: 8,
-        padding: 5,
+    container: {
+        flex: 1,
         backgroundColor: COLORS.white,
+        paddingHorizontal: 20,
     },
-    // Contenedor que maneja el flex-wrap de los chips
-    rowWrapper: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
-        padding: 5,
-    },
-    // Ajustamos el chip para que ocupe el 48% y se ajuste en dos columnas con el flex-wrap
-    chip: {
-        width: '48%', 
-        paddingVertical: 10,
-        paddingHorizontal: 12,
-        borderRadius: 20,
-        backgroundColor: COLORS.lighter, 
-        borderWidth: 1,
-        borderColor: COLORS.secondary,
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 8, // Espacio entre filas
-    },
-    chipSelected: {
-        backgroundColor: COLORS.primary,
-        borderColor: COLORS.primary,
-    },
-    chipText: {
-        fontSize: 13,
-        color: COLORS.text,
-        textAlign: 'center',
-    },
-    chipTextSelected: {
-        color: COLORS.white,
-        fontWeight: 'bold',
-    },
-    emptySearchText: {
-        textAlign: 'center',
-        padding: 20,
-        color: COLORS.text,
-        fontStyle: 'italic',
-        width: '100%',
-    },
-    selectedView: {
-        padding: 15,
-        borderRadius: 8,
-        backgroundColor: COLORS.secondary,
-        marginTop: 10,
-        borderWidth: 1,
-        borderColor: COLORS.primary,
-    },
-    placeholderSelectedView: {
-        padding: 15,
-        borderRadius: 8,
         backgroundColor: COLORS.white,
+    },
+    loadingText: {
         marginTop: 10,
-        borderWidth: 1,
-        borderColor: COLORS.light,
-    },
-    selectedLabel: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: COLORS.white,
-        marginBottom: 5,
-    },
-    selectedValueText: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: COLORS.white,
-    },
-    placeholderText: {
         fontSize: 16,
         color: COLORS.text,
-        textAlign: 'center',
     },
-    detailInputs: {
-        marginTop: 10,
+    header: {
+        paddingVertical: 20,
     },
-    suggestionText: {
-        fontSize: 12,
-        color: COLORS.secondary,
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: COLORS.primary,
+    },
+    headerSubtitle: {
+        fontSize: 16,
+        color: COLORS.text,
         marginTop: 5,
-        fontStyle: 'italic',
+    },
+    toggleContainer: {
+        flexDirection: 'row',
+        marginBottom: 20,
+        borderRadius: 8,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: COLORS.light,
+    },
+    toggleButton: {
+        flex: 1,
+        padding: 15,
+        backgroundColor: COLORS.lighter,
+    },
+    toggleButtonActive: {
+        backgroundColor: COLORS.primary,
+    },
+    toggleText: {
+        textAlign: 'center', 
+        fontWeight: '500', 
+        color: COLORS.text,
+    },
+    toggleTextActive: { 
+        color: COLORS.white, 
+        fontWeight: 'bold',
+    },
+    formSection: { 
+        marginBottom: 20, 
+        padding: 15, 
+        backgroundColor: COLORS.lighter, 
+        borderRadius: 8, 
+        borderWidth: 1, 
+        borderColor: COLORS.light 
+    },
+    label: { 
+        fontSize: 16, 
+        fontWeight: '600', 
+        marginTop: 10, 
+        marginBottom: 5, 
+        color: COLORS.text 
+    },
+    input: { 
+        borderWidth: 1, 
+        borderColor: COLORS.light, 
+        padding: 10, 
+        borderRadius: 5, 
+        fontSize: 16, 
+        backgroundColor: COLORS.white, 
+        color: COLORS.text,
+        marginBottom: 10, 
+    },
+    pickerContainer: { 
+        borderWidth: 1, 
+        borderColor: COLORS.light, 
+        borderRadius: 5, 
+        marginBottom: 10, 
+        backgroundColor: COLORS.white, 
+        overflow: 'hidden' 
+    },
+    picker: { 
+        height: 50, 
+        width: '100%', 
+        color: COLORS.text 
+    },
+    switchRow: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: 10, 
+        paddingVertical: 5 
+    },
+    detailInputs: { 
+        marginTop: 10 
+    },
+    suggestionText: { 
+        fontSize: 12, 
+        color: COLORS.secondary,
+        marginBottom: 10,
+    },
+    summaryContainer: {
+        backgroundColor: COLORS.lighter,
+        padding: 15,
+        borderRadius: 8,
+        marginBottom: 20,
+        borderLeftWidth: 5,
+        borderLeftColor: COLORS.primary,
+    },
+    summaryText: {
+        fontSize: 16,
+        color: COLORS.text,
+        fontWeight: '600',
+    },
+    summaryValue: {
+        fontWeight: 'bold',
+        color: COLORS.error,
+    },
+    saveButton: { 
+        backgroundColor: COLORS.primary, 
+        padding: 15, 
+        borderRadius: 8, 
+        marginTop: 20, 
+        marginBottom: 50, 
+        elevation: 3 
+    },
+    saveButtonText: { 
+        color: COLORS.white, 
+        fontSize: 18, 
+        fontWeight: 'bold', 
+        textAlign: 'center' 
     },
 });

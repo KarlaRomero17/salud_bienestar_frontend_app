@@ -1,7 +1,8 @@
 import axios from 'axios';
+import { SERVER_URI } from '@env';
 
 const API = axios.create({
-  baseURL: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api',
+  baseURL: `${SERVER_URI}/api` || 'http://10.0.2.2:5000/api',
   timeout: 10000,
 });
 

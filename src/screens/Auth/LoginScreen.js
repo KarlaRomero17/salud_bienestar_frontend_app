@@ -63,9 +63,9 @@ export default function LoginScreen({ navigation }) {
           {/* Header con logo */}
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <Text style={styles.logo}>LOGO</Text>
+              <Text style={styles.logo}>⭐</Text>
             </View>
-            <Text style={styles.title}>NOMBRE APP</Text>
+            <Text style={styles.title}>HealthTrack</Text>
             <Text style={styles.subtitle}>Salud y Bienestar</Text>
           </View>
 
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   logo: {
-    fontSize: 40,
+    fontSize: 48,
   },
   title: {
     fontSize: 32,

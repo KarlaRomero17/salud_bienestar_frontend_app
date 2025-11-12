@@ -80,11 +80,84 @@ export default function ConfiguracionesScreen() {
 
         {/* Información del Usuario */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Cuenta</Text>
+          <Text style={styles.sectionTitle}>Mi Perfil</Text>
+          
+          {/* Nombre completo */}
+          {(user?.nombre || user?.apellido) && (
+            <View style={styles.infoCard}>
+              <MaterialIcons name="person" size={20} color="#64748b" />
+              <View style={styles.infoTextContainer}>
+                <Text style={styles.infoLabel}>Nombre</Text>
+                <Text style={styles.infoText}>
+                  {user?.nombre} {user?.apellido}
+                </Text>
+              </View>
+            </View>
+          )}
+          
+          {/* Email */}
           <View style={styles.infoCard}>
             <MaterialIcons name="email" size={20} color="#64748b" />
-            <Text style={styles.infoText}>{user?.email || 'No disponible'}</Text>
+            <View style={styles.infoTextContainer}>
+              <Text style={styles.infoLabel}>Correo</Text>
+              <Text style={styles.infoText}>{user?.email || 'No disponible'}</Text>
+            </View>
           </View>
+          
+          {/* Edad */}
+          {user?.edad > 0 && (
+            <View style={styles.infoCard}>
+              <MaterialIcons name="cake" size={20} color="#64748b" />
+              <View style={styles.infoTextContainer}>
+                <Text style={styles.infoLabel}>Edad</Text>
+                <Text style={styles.infoText}>{user?.edad} años</Text>
+              </View>
+            </View>
+          )}
+          
+          {/* Sexo */}
+          {user?.sexo && (
+            <View style={styles.infoCard}>
+              <MaterialIcons name="wc" size={20} color="#64748b" />
+              <View style={styles.infoTextContainer}>
+                <Text style={styles.infoLabel}>Sexo</Text>
+                <Text style={styles.infoText}>{user?.sexo}</Text>
+              </View>
+            </View>
+          )}
+          
+          {/* Altura */}
+          {user?.altura > 0 && (
+            <View style={styles.infoCard}>
+              <MaterialIcons name="height" size={20} color="#64748b" />
+              <View style={styles.infoTextContainer}>
+                <Text style={styles.infoLabel}>Altura</Text>
+                <Text style={styles.infoText}>{user?.altura} m</Text>
+              </View>
+            </View>
+          )}
+          
+          {/* Peso */}
+          {user?.peso > 0 && (
+            <View style={styles.infoCard}>
+              <MaterialIcons name="monitor-weight" size={20} color="#64748b" />
+              <View style={styles.infoTextContainer}>
+                <Text style={styles.infoLabel}>Peso</Text>
+                <Text style={styles.infoText}>{user?.peso} kg</Text>
+              </View>
+            </View>
+          )}
+          
+          {/* Fecha de registro */}
+          {user?.fechaRegistro && (
+            <View style={styles.infoCard}>
+              <MaterialIcons name="event" size={20} color="#64748b" />
+              <View style={styles.infoTextContainer}>
+                <Text style={styles.infoLabel}>Miembro desde</Text>
+                <Text style={styles.infoText}>{user?.fechaRegistro}</Text>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Opciones de Configuración */}
@@ -193,17 +266,27 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e2e8f0',
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 2,
   },
-  infoText: {
+  infoTextContainer: {
     marginLeft: 12,
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: '#64748b',
+    marginBottom: 2,
+    fontWeight: '500',
+  },
+  infoText: {
     fontSize: 16,
     color: '#1e293b',
-    flex: 1,
+    fontWeight: '600',
   },
   optionButton: {
     flexDirection: 'row',
