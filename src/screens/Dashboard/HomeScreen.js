@@ -35,16 +35,16 @@ const HomeScreen = ({ navigation }) => {
   ];
 
   // Datos para herramientas rápidas
-  const quickTools = [
-    {
-      title: 'Agua',
-      description: 'Registro de hidratación diaria',
-      icon: 'water',
-      variant: 'secondary',
-      size: 'small',
-      onPress: () => navigation.navigate('WaterTracker')
-    }
-  ];
+  // const quickTools = [
+  //   {
+  //     title: 'Agua',
+  //     description: 'Registro de hidratación diaria',
+  //     icon: 'water',
+  //     variant: 'secondary',
+  //     size: 'small',
+  //     onPress: () => navigation.navigate('WaterTracker')
+  //   }
+  // ];
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -63,7 +63,7 @@ const HomeScreen = ({ navigation }) => {
             title={action.title}
             description={action.description}
             icon={action.icon}
-            badge={action.badge}
+            // badge={action.badge}
             variant={action.variant}
             onPress={action.onPress}
           />
@@ -76,7 +76,7 @@ const HomeScreen = ({ navigation }) => {
         <SectionTitle title="Tu Día en Resumen" />
         <PrimaryCard 
           title="Actividad Hoy"
-          description="Has completado el 75% de tus objetivos diarios"
+          description="Objetivos diarios"
           icon="checkmark-circle"
           variant="primary"
           size="small"
