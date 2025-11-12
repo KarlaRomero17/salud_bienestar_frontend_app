@@ -1,4 +1,3 @@
-// src/screens/ActividadFisica/AgregarActividadScreen.js - CÓDIGO FINAL CORREGIDO (UUID/Crypto Fix)
 
 import React, { useState, useEffect, useCallback } from 'react'; 
 import { 
@@ -15,9 +14,11 @@ import {
 import { Picker } from '@react-native-picker/picker'; 
 import axios from 'axios'; 
 import { Ionicons } from '@expo/vector-icons'; 
+import { SERVER_URI } from '@env';
 
-// ⚠️ AJUSTA LA URL BASE DE TU BACKEND
-const BASE_URL = 'http://10.0.2.2:5000/api/actividad';
+// ✅ Usar variable de entorno en lugar de IP hardcodeada
+const BASE_URL = `${SERVER_URI}/api/actividad`;
+const API_URL_SESION = `${BASE_URL}/sesion`; // Endpoint para el PUT de actualización
 
 const COLORS = { 
     primary: '#2a8c4a', secondary: '#64c27b', light: '#9bfab0', 
@@ -26,19 +27,23 @@ const COLORS = {
 
 // Factores de estimación calórica (Kcal por unidad base - simplificado)
 const CALORIE_FACTORS = { 
-    ACTIVITY_TIME: 6.0, // Kcal por minuto (ej: correr suave, nadar)
-    RUNNING_DISTANCE: 65.0, // Kcal por km
-    WEIGHT_TRAINING_TIME: 8.0, // Kcal por minuto (entrenamiento con pesas)
-    BODYWEIGHT_TIME: 7.0, // Kcal por minuto (entrenamiento sin pesas/calistenia)
+    ACTIVITY_TIME: 6.0, 
+    RUNNING_DISTANCE: 65.0, 
+    WEIGHT_TRAINING_TIME: 8.0, 
+    BODYWEIGHT_TIME: 7.0, 
 };
 
-// 🔑 CORRECCIÓN: Generador de ID local simple para evitar el error 'crypto.getRandomValues()'
-const generateLocalId = () => {
-    return Date.now().toString(36) + Math.random().toString(36).substring(2);
-};
+// Función de utilidad para manejar IDs locales que ya no es necesaria
+// Se mantiene pero no se usa en el guardado final para evitar confusiones
+// const generateLocalId = () => {
+//     return Date.now().toString(36) + Math.random().toString(36).substring(2);
+// };
 
 
-export default function AgregarActividadScreen({ navigation }) {
+// 🚨 CORRECCIÓN 1: Se añade 'route' para obtener el sesionId
+export default function AgregarActividadScreen({ navigation, route }) {
+    
+    const { sesionId } = route.params || {}; // Se extrae el ID de la sesión
     
     const [selectedTipo, setSelectedTipo] = useState('Actividad Física'); 
     
@@ -62,7 +67,7 @@ export default function AgregarActividadScreen({ navigation }) {
     });
 
 
-    // 1. OBTENER CATÁLOGO DE DATOS DEL BACKEND
+    // OBTENER CATÁLOGO DE DATOS DEL BACKEND (Sin cambios)
     const fetchCatalogo = useCallback(async () => {
         setIsLoadingData(true);
         try {
@@ -88,8 +93,8 @@ export default function AgregarActividadScreen({ navigation }) {
     }, [fetchCatalogo]);
 
 
-    // 2. FUNCIÓN DE ESTIMACIÓN DE CALORÍAS
-    const estimarCalorias = (tipo, actividad) => {
+    // FUNCIÓN DE ESTIMACIÓN DE CALORÍAS (Sin cambios)
+    const estimarCalorias = (tipo) => {
         let calorias = 0;
         
         if (tipo === 'Actividad Física') {
@@ -122,16 +127,18 @@ export default function AgregarActividadScreen({ navigation }) {
     };
 
 
-    // 3. FUNCIÓN CLAVE: GUARDAR Y NAVEGAR (PERSISTENCIA LOCAL)
-    const handleGuardarActividad = () => {
+    // 🚨 CORRECCIÓN CLAVE: Lógica para enviar a la API y navegar
+    const handleGuardarActividad = async () => {
         let nombreActividad;
-        let caloriasEstimadas;
         let actividadValida = false;
-        let dataToSave = { 
-            id: generateLocalId(), // 🔑 ID TEMPORAL CORREGIDO
-            tipo: selectedTipo,
-        };
+        let dataToSave = { tipo: selectedTipo };
 
+        if (!sesionId) {
+            Alert.alert("Error", "No se encontró el ID de la sesión. Vuelve a la pantalla anterior y crea una sesión primero.");
+            return;
+        }
+
+        // 1. CONSTRUIR OBJETO DE DATOS
         if (selectedTipo === 'Actividad Física') {
             nombreActividad = catalogo.tiposActividad.find(t => t.value === actividadSeleccionada)?.label;
             
@@ -140,8 +147,8 @@ export default function AgregarActividadScreen({ navigation }) {
                 dataToSave = {
                     ...dataToSave,
                     nombre: nombreActividad || 'Actividad Desconocida',
-                    tiempo: parseFloat(tiempo) || undefined,
-                    distancia: parseFloat(distancia) || undefined,
+                    tiempo: parseFloat(tiempo) || 0,
+                    distancia: parseFloat(distancia) || 0,
                     tipoActividad: actividadSeleccionada, 
                 };
             }
@@ -155,29 +162,46 @@ export default function AgregarActividadScreen({ navigation }) {
                     ...dataToSave,
                     nombre: nombreActividad || 'Entrenamiento Desconocido',
                     conPesas: conPesas,
-                    series: parseInt(series) || undefined,
-                    repeticiones: parseInt(repeticiones) || undefined,
-                    peso: parseFloat(peso) || undefined,
-                    tiempo: parseFloat(tiempo) || undefined, 
+                    series: parseInt(series) || 0,
+                    repeticiones: parseInt(repeticiones) || 0,
+                    peso: parseFloat(peso) || 0,
+                    tiempo: parseFloat(tiempo) || 0, 
                 };
             }
         }
-
+        
+        // 2. VALIDACIÓN FINAL
         if (!actividadValida) {
-            Alert.alert("Error de Datos", "Debes ingresar al menos el tiempo o la distancia (Act. Física), o series/repeticiones/tiempo (Entrenamiento).");
+            Alert.alert("Error de Datos", "Debes ingresar datos para la actividad.");
             return;
         }
         
-        // 4. Calcular calorías finales
-        caloriasEstimadas = estimarCalorias(selectedTipo, dataToSave);
-        dataToSave.calorias = caloriasEstimadas;
+        dataToSave.calorias = estimarCalorias(selectedTipo);
 
-        // 5. Enviar el objeto de actividad a NuevaSesionScreen (Persistencia)
-        navigation.navigate('NuevaSesion', { nuevaActividad: dataToSave });
+        // 3. LLAMADA A LA API (PERSISTENCIA)
+        setIsSaving(true); 
+        try {
+            // Llama a PUT /api/actividad/sesion/:sesionId con el array para $push
+            await axios.put(`${API_URL_SESION}/${sesionId}`, {
+                actividades: [dataToSave] 
+            });
+
+            // Éxito: Navegar de vuelta para que NuevaSesionScreen recargue la lista de la DB
+            Alert.alert("Éxito", "Actividad guardada. Recargando sesión.");
+            navigation.navigate('NuevaSesion');
+
+        } catch (error) {
+            Alert.alert("Error", "No se pudo guardar la actividad en la base de datos. Asegúrate de que el backend esté corriendo.");
+            console.error("Error al guardar actividad:", error.response?.data || error);
+        } finally {
+            setIsSaving(false);
+        }
     };
 
 
-    // 4. Renderizado condicional
+    // El resto del código de renderizado y estilos se mantiene igual.
+    // ...
+  
     const renderFormulario = () => {
         if (selectedTipo === 'Actividad Física') {
             return (
@@ -215,7 +239,7 @@ export default function AgregarActividadScreen({ navigation }) {
                     <Text style={styles.suggestionText}>Introduce al menos uno de los dos.</Text>
                 </View>
             );
-        } else { // Entrenamiento
+        } else {
             return (
                 <View style={styles.formSection}>
                     <Text style={styles.label}>Ejercicio/Entrenamiento</Text>
@@ -286,7 +310,7 @@ export default function AgregarActividadScreen({ navigation }) {
     };
 
 
-    // 5. Renderizado principal
+ 
     if (isLoadingData) {
         return (
             <View style={styles.loadingContainer}>
