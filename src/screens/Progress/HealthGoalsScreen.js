@@ -32,6 +32,8 @@ const HealthGoalsScreen = ({ navigation }) => {
   const [weightHistoryVisible, setWeightHistoryVisible] = useState(false);
   const [calculandoProgreso, setCalculandoProgreso] = useState(false);
 
+
+  const peso_inicial = user?.peso || 0;
   const [newGoal, setNewGoal] = useState({
     title: '',
     type: 'loss',
@@ -144,6 +146,18 @@ const HealthGoalsScreen = ({ navigation }) => {
       fetchData();
     }
   }, [USER_UUID]);
+
+  // Efecto para recalcular progresos cuando cambia el peso actual
+  useEffect(() => {
+    if (currentUser?.peso_actual && goals.length > 0) {
+      console.log('🔄 Recalculando progresos por cambio de peso...');
+      const updatedGoals = goals.map(goal => ({
+        ...goal,
+        progress: calculateProgress(goal, currentUser.peso_actual)
+      }));
+      setGoals(updatedGoals);
+    }
+  }, [currentUser?.peso_actual]);
 
   // Manejar cambios en el formulario
   const handleGoalChange = (field, value, isEditing = false) => {
@@ -349,78 +363,68 @@ const HealthGoalsScreen = ({ navigation }) => {
   };
 
   // Calcular progreso basado en peso actual
-const calculateProgress = (goal, currentWeight) => {
-  const target = goal.targetWeight;
-  // Usar el initialWeight del objetivo O el peso actual si no hay initialWeight
-  const initial = goal.initialWeight || currentWeight;
-  console.log(user?.peso_actual);
+  // Función mejorada para calcular progreso
+  const calculateProgress = (goal, currentWeight) => {
+    const target = goal.targetWeight;
+    // Usar el initialWeight del objetivo O el peso actual del usuario
+    const initial = goal.initialWeight || currentUser?.peso_actual || currentWeight;
 
-  console.log('🔍 Datos del cálculo:', {
-    title: goal.title,
-    initial: initial,
-    current: currentWeight,
-    target: target,
-    type: goal.type
-  });
+    console.log('🔍 Datos del cálculo:', {
+      title: goal.title,
+      initial: initial,
+      current: currentWeight,
+      target: target,
+      type: goal.type
+    });
 
-  // Si no hay datos suficientes, retornar 0
-  if (!initial || !currentWeight || !target) {
-    console.log(`⚠️ Datos insuficientes: initial=${initial}, current=${currentWeight}, target=${target}`);
-    return 0;
-  }
-
-  let progress = 0;
-
-  if (goal.type === 'loss') {
-    // Pérdida de peso: progreso = (peso perdido / peso a perder) * 100
-    const totalToLose = initial - target;
-    
-    console.log(`📉 "${goal.title}": Total a perder = ${initial} - ${target} = ${totalToLose}kg`);
-
-    // Si el objetivo ya está cumplido
-    if (currentWeight <= target) {
-      progress = 100;
-      console.log(`✅ "${goal.title}": Ya alcanzó el objetivo!`);
-    }
-    // Si no hay nada que perder (meta inválida)
-    else if (totalToLose <= 0) {
-      progress = 100;
-      console.log(`⚠️ "${goal.title}": Meta inválida (ya está en o por debajo del objetivo)`);
-    }
-    else {
-      const currentLoss = initial - currentWeight;
-      progress = (currentLoss / totalToLose) * 100;
-      console.log(`📉 "${goal.title}": Pérdida actual = ${initial} - ${currentWeight} = ${currentLoss}kg, Progreso = ${progress.toFixed(1)}%`);
+    // Si no hay datos suficientes, retornar 0
+    if (!initial || !currentWeight || !target) {
+      console.log(`⚠️ Datos insuficientes: initial=${initial}, current=${currentWeight}, target=${target}`);
+      return 0;
     }
 
-  } else {
-    // Ganancia de masa: progreso = (peso ganado / peso a ganar) * 100
-    const totalToGain = target - initial;
-    
-    console.log(`📈 "${goal.title}": Total a ganar = ${target} - ${initial} = ${totalToGain}kg`);
+    let progress = 0;
 
-    // Si el objetivo ya está cumplido
-    if (currentWeight >= target) {
-      progress = 100;
-      console.log(`✅ "${goal.title}": Ya alcanzó el objetivo!`);
-    }
-    // Si no hay nada que ganar (meta inválida)
-    else if (totalToGain <= 0) {
-      progress = 100;
-      console.log(`⚠️ "${goal.title}": Meta inválida (ya está en o por encima del objetivo)`);
-    }
-    else {
-      const currentGain = currentWeight - initial;
-      progress = (currentGain / totalToGain) * 100;
-      console.log(`📈 "${goal.title}": Ganancia actual = ${currentWeight} - ${initial} = ${currentGain}kg, Progreso = ${progress.toFixed(1)}%`);
-    }
-  }
+    if (goal.type === 'loss') {
+      // Pérdida de peso: progreso = (peso perdido / peso a perder) * 100
+      const totalToLose = initial - target;
 
-  const progresoFinal = Math.min(Math.max(progress, 0), 100);
-  console.log(`🎯 "${goal.title}": Progreso final = ${progresoFinal.toFixed(1)}%`);
-  
-  return progresoFinal;
-};
+      // Si el objetivo ya está cumplido
+      if (currentWeight <= target) {
+        progress = 100;
+      }
+      // Si no hay nada que perder (meta inválida)
+      else if (totalToLose <= 0) {
+        progress = 100;
+      }
+      else {
+        const currentLoss = initial - currentWeight;
+        progress = (currentLoss / totalToLose) * 100;
+      }
+
+    } else {
+      // Ganancia de masa: progreso = (peso ganado / peso a ganar) * 100
+      const totalToGain = target - initial;
+
+      // Si el objetivo ya está cumplido
+      if (currentWeight >= target) {
+        progress = 100;
+      }
+      // Si no hay nada que ganar (meta inválida)
+      else if (totalToGain <= 0) {
+        progress = 100;
+      }
+      else {
+        const currentGain = currentWeight - initial;
+        progress = (currentGain / totalToGain) * 100;
+      }
+    }
+
+    const progresoFinal = Math.min(Math.max(progress, 0), 100);
+    console.log(`🎯 "${goal.title}": Progreso final = ${progresoFinal.toFixed(1)}%`);
+
+    return progresoFinal;
+  };
 
   // Verificar si el objetivo está completado
   const isGoalCompleted = (goal, currentWeight) => {
@@ -582,6 +586,8 @@ const calculateProgress = (goal, currentWeight) => {
             onEdit={editGoal}
             onDelete={deleteGoal}
             onComplete={markGoalAsCompleted}
+            currentWeight={currentUser?.peso_actual} // ← AÑADE ESTO
+            calculateProgress={calculateProgress} 
           />
         )}
         keyExtractor={item => item._id}

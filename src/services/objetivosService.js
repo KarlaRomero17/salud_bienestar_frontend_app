@@ -22,18 +22,22 @@ api.interceptors.response.use(
 );
 
 export const objetivosService = {
-  // Obtener todos los objetivos
-    obtenerTodos: async (userId = null) => {
+  // Obtener todos los objetivos de un usuario específico
+   obtenerTodos: async (userId) => {
     try {
-      const params = userId ? { userId } : {};
-      console.log('🔍 Buscando objetivos con params:', params);
-      console.log('🌐 URL completa:', `${API_BASE_URL}/health-goals`);
+      if (!userId) {
+        throw new Error('Se requiere el ID del usuario');
+      }
       
-      const response = await api.get('/health-goals', { params });
-      console.log('✅ Objetivos obtenidos exitosamente');
+      console.log('Buscando objetivos para usuario:', userId);
+      console.log('URL completa:', `${API_BASE_URL}/health-goals/${userId}`);
+      
+      // IMPORTANTE: Cambia a esta URL con el userId como parámetro de ruta
+      const response = await api.get(`/health-goals/${userId}`);
+      console.log('Objetivos obtenidos exitosamente');
       return response.data;
     } catch (error) {
-      console.error('❌ Error en obtenerTodos:');
+      console.error('Error en obtenerTodos:', error.response?.data || error.message);
       throw new Error(error.response?.data?.mensaje || 'Error al obtener objetivos');
     }
   },
