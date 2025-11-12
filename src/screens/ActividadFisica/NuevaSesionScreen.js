@@ -4,9 +4,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios'; 
 import { AuthContext } from '../../context/AuthContext'; 
+import { SERVER_URI } from '@env';
 
-
-const BASE_URL = 'http://10.0.2.2:5000/api'; 
+// ✅ Usar variable de entorno en lugar de IP hardcodeada
+const BASE_URL = `${SERVER_URI}/api`; 
 const API_URL_SESION = `${BASE_URL}/actividad/sesion`;
 const API_URL_SESION_HOY = `${BASE_URL}/actividad/sesion/hoy`;
 

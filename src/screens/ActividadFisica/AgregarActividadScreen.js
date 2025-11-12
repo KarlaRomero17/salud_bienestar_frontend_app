@@ -14,9 +14,10 @@ import {
 import { Picker } from '@react-native-picker/picker'; 
 import axios from 'axios'; 
 import { Ionicons } from '@expo/vector-icons'; 
+import { SERVER_URI } from '@env';
 
-
-const BASE_URL = 'http://10.0.2.2:5000/api/actividad';
+// ✅ Usar variable de entorno en lugar de IP hardcodeada
+const BASE_URL = `${SERVER_URI}/api/actividad`;
 const API_URL_SESION = `${BASE_URL}/sesion`; // Endpoint para el PUT de actualización
 
 const COLORS = { 

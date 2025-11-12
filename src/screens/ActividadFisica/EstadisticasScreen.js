@@ -9,12 +9,12 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { LineChart } from 'react-native-chart-kit'; 
 import { useFocusEffect } from '@react-navigation/native';
 import { AuthContext } from '../../context/AuthContext'; 
+import { SERVER_URI } from '@env';
 
 const screenWidth = Dimensions.get('window').width;
 
-
-   
-const BASE_URL = "http://10.0.2.2:5000/api"; 
+// ✅ Usar variable de entorno en lugar de IP hardcodeada
+const BASE_URL = `${SERVER_URI}/api`; 
 const API_URL_ESTADISTICAS = `${BASE_URL}/actividad/estadisticas`; 
 
 const COLORS = {
