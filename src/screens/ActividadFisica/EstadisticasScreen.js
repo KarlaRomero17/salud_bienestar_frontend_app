@@ -12,7 +12,9 @@ import { AuthContext } from '../../context/AuthContext';
 
 const screenWidth = Dimensions.get('window').width;
 
-const BASE_URL = 'http://10.0.2.2:5000/api'; 
+
+   
+const BASE_URL = "http://10.0.2.2:5000/api"; 
 const API_URL_ESTADISTICAS = `${BASE_URL}/actividad/estadisticas`; 
 
 const COLORS = {

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react'; 
 import { 
     View, 
@@ -15,9 +16,8 @@ import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons'; 
 
 
-
 const BASE_URL = 'http://10.0.2.2:5000/api/actividad';
-const API_URL_SESION = `${BASE_URL}/sesion`; 
+const API_URL_SESION = `${BASE_URL}/sesion`; // Endpoint para el PUT de actualización
 
 const COLORS = { 
     primary: '#2a8c4a', secondary: '#64c27b', light: '#9bfab0', 
@@ -32,11 +32,17 @@ const CALORIE_FACTORS = {
     BODYWEIGHT_TIME: 7.0, 
 };
 
+// Función de utilidad para manejar IDs locales que ya no es necesaria
+// Se mantiene pero no se usa en el guardado final para evitar confusiones
+// const generateLocalId = () => {
+//     return Date.now().toString(36) + Math.random().toString(36).substring(2);
+// };
 
 
+// 🚨 CORRECCIÓN 1: Se añade 'route' para obtener el sesionId
 export default function AgregarActividadScreen({ navigation, route }) {
     
-    const { sesionId } = route.params || {}; 
+    const { sesionId } = route.params || {}; // Se extrae el ID de la sesión
     
     const [selectedTipo, setSelectedTipo] = useState('Actividad Física'); 
     
@@ -60,7 +66,7 @@ export default function AgregarActividadScreen({ navigation, route }) {
     });
 
 
- 
+    // OBTENER CATÁLOGO DE DATOS DEL BACKEND (Sin cambios)
     const fetchCatalogo = useCallback(async () => {
         setIsLoadingData(true);
         try {
@@ -86,7 +92,7 @@ export default function AgregarActividadScreen({ navigation, route }) {
     }, [fetchCatalogo]);
 
 
-    
+    // FUNCIÓN DE ESTIMACIÓN DE CALORÍAS (Sin cambios)
     const estimarCalorias = (tipo) => {
         let calorias = 0;
         
@@ -120,7 +126,7 @@ export default function AgregarActividadScreen({ navigation, route }) {
     };
 
 
-  
+    // 🚨 CORRECCIÓN CLAVE: Lógica para enviar a la API y navegar
     const handleGuardarActividad = async () => {
         let nombreActividad;
         let actividadValida = false;
@@ -163,7 +169,7 @@ export default function AgregarActividadScreen({ navigation, route }) {
             }
         }
         
-       
+        // 2. VALIDACIÓN FINAL
         if (!actividadValida) {
             Alert.alert("Error de Datos", "Debes ingresar datos para la actividad.");
             return;
@@ -171,15 +177,15 @@ export default function AgregarActividadScreen({ navigation, route }) {
         
         dataToSave.calorias = estimarCalorias(selectedTipo);
 
-       
+        // 3. LLAMADA A LA API (PERSISTENCIA)
         setIsSaving(true); 
         try {
-           
+            // Llama a PUT /api/actividad/sesion/:sesionId con el array para $push
             await axios.put(`${API_URL_SESION}/${sesionId}`, {
                 actividades: [dataToSave] 
             });
 
-            
+            // Éxito: Navegar de vuelta para que NuevaSesionScreen recargue la lista de la DB
             Alert.alert("Éxito", "Actividad guardada. Recargando sesión.");
             navigation.navigate('NuevaSesion');
 
@@ -191,6 +197,9 @@ export default function AgregarActividadScreen({ navigation, route }) {
         }
     };
 
+
+    // El resto del código de renderizado y estilos se mantiene igual.
+    // ...
   
     const renderFormulario = () => {
         if (selectedTipo === 'Actividad Física') {
