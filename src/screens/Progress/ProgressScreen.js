@@ -9,102 +9,174 @@ import {
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
-import { LineChart, BarChart, ProgressChart } from 'react-native-chart-kit';
+import { LineChart, ProgressChart } from 'react-native-chart-kit';
 import Layout from '../../components/Layout';
 import { AuthContext } from '../../context/AuthContext';
-import objetivosService from '../../services/objetivosService';
-import userService from '../../services/userService';
-
 import { statsService } from '../../services/statsService';
 
 const ProgressScreen = () => {
   const { user } = useContext(AuthContext);
-  const [selectedPeriod, setSelectedPeriod] = useState('mensual');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState(null);
   const [goals, setGoals] = useState([]);
-  const [weightHistory, setWeightHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({});
+  const [stats, setStats] = useState({
+    primerPeso: null,
+    ultimoPeso: null,
+    cambioPeso: 0,
+    objetivosCompletados: 0,
+    progresoPromedio: 0,
+    totalObjetivos: 0,
+    datosPeso: [],
+    fechasPeso: [],
+    totalRegistros: 0,
+    tendencia: 'estable',
+    objetivos: []
+  });
   const screenWidth = Dimensions.get('window').width;
 
   const USER_UUID = user?.uid;
 
-  // Cargar datos
-  const fetchData = async () => {
-  try {
-    setLoading(true);
+  // Generar opciones de meses y años
+  const getPeriodOptions = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
     
-    const statsResult = await statsService.obtenerEstadisticas(USER_UUID);
-    if (statsResult.exito) {
-      const datos = statsResult.datos;
-      
-      // Actualizar el estado con los datos del backend
-      setStats({
-        primerPeso: datos.peso.inicial,
-        ultimoPeso: datos.peso.actual,
-        cambioPeso: datos.peso.cambio,
-        objetivosCompletados: datos.objetivos.completados,
-        progresoPromedio: datos.objetivos.progresoPromedio,
-        totalObjetivos: datos.objetivos.total,
-        datosPeso: datos.peso.evolucion?.datos || [],
-        fechasPeso: datos.peso.evolucion?.fechas || [],
-        totalRegistros: datos.peso.totalRegistros,
-        tendencia: datos.peso.tendencia,
-        objetivos: datos.objetivos.lista || []
-      });
+    // Últimos 5 años
+    for (let i = 0; i < 5; i++) {
+      years.push((currentYear - i).toString());
     }
-
-  } catch (error) {
-    console.error('Error cargando estadísticas:', error);
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // Calcular estadísticas
-  const calcularEstadisticas = (historial, objetivos) => {
-    if (historial.length === 0) return;
-
-    const primerPeso = historial[historial.length - 1]?.peso;
-    const ultimoPeso = historial[0]?.peso;
-    const cambioPeso = ultimoPeso - primerPeso;
     
-    const objetivosCompletados = objetivos.filter(g => g.completed).length;
-    const progresoPromedio = objetivos.length > 0 
-      ? objetivos.reduce((sum, goal) => sum + (goal.progress || 0), 0) / objetivos.length 
-      : 0;
+    // Meses del año actual
+    const months = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    
+    return { years, months };
+  };
 
-    // Datos para gráfico de peso (últimos 7 registros o todos si hay menos)
-    const datosPeso = historial.slice(0, 7).reverse().map(item => item.peso);
-    const fechasPeso = historial.slice(0, 7).reverse().map(item => 
-      new Date(item.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
-    );
+  const periodOptions = getPeriodOptions();
 
-    setStats({
-      primerPeso,
-      ultimoPeso,
-      cambioPeso,
-      objetivosCompletados,
-      progresoPromedio,
-      totalObjetivos: objetivos.length,
-      datosPeso,
-      fechasPeso,
-      totalRegistros: historial.length,
-      tendencia: cambioPeso > 0 ? 'subiendo' : cambioPeso < 0 ? 'bajando' : 'estable'
-    });
+  // Cargar datos con filtros
+  const fetchData = async (anio = null, mes = null) => {
+    try {
+      setLoading(true);
+      console.log('Cargando datos con filtros:', { anio, mes });
+      
+      const filtros = {};
+      if (anio && anio !== 'todos') filtros.anio = anio;
+      if (mes) filtros.mes = mes;
+
+      const statsResult = await statsService.obtenerEstadisticas(USER_UUID, filtros);
+      console.log('Resultado del backend:', statsResult);
+      
+      if (statsResult.exito) {
+        const datos = statsResult.datos;
+        
+        // Actualizar el estado con los datos del backend
+        const nuevosStats = {
+          primerPeso: datos.peso?.inicial || null,
+          ultimoPeso: datos.peso?.actual || null,
+          cambioPeso: datos.peso?.cambio || 0,
+          objetivosCompletados: datos.objetivos?.completados || 0,
+          progresoPromedio: datos.objetivos?.progresoPromedio || 0,
+          totalObjetivos: datos.objetivos?.total || 0,
+          datosPeso: datos.peso?.evolucion?.datos || [],
+          fechasPeso: datos.peso?.evolucion?.fechas || [],
+          totalRegistros: datos.peso?.totalRegistros || 0,
+          tendencia: datos.peso?.tendencia || 'estable',
+          objetivos: datos.objetivos?.lista || [],
+          filtros: datos.filtros
+        };
+
+        console.log('Nuevos stats:', nuevosStats);
+        setStats(nuevosStats);
+
+        // Actualizar goals desde los objetivos
+        setGoals(datos.objetivos?.lista || []);
+      } else {
+        console.log('Error en la respuesta del backend');
+        // Resetear datos si hay error
+        setStats({
+          primerPeso: null,
+          ultimoPeso: null,
+          cambioPeso: 0,
+          objetivosCompletados: 0,
+          progresoPromedio: 0,
+          totalObjetivos: 0,
+          datosPeso: [],
+          fechasPeso: [],
+          totalRegistros: 0,
+          tendencia: 'estable',
+          objetivos: []
+        });
+        setGoals([]);
+      }
+
+    } catch (error) {
+      console.error('Error cargando estadísticas:', error);
+
+      setStats({
+        primerPeso: null,
+        ultimoPeso: null,
+        cambioPeso: 0,
+        objetivosCompletados: 0,
+        progresoPromedio: 0,
+        totalObjetivos: 0,
+        datosPeso: [],
+        fechasPeso: [],
+        totalRegistros: 0,
+        tendencia: 'estable',
+        objetivos: []
+      });
+      setGoals([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Manejar cambio de año
+  const handleYearChange = (year) => {
+    console.log('🎯 Cambiando año a:', year);
+    setSelectedYear(year);
+    setSelectedMonth(null); // Resetear mes cuando cambia el año
+    if (year === 'todos') {
+      fetchData(null, null);
+    } else {
+      fetchData(year, null);
+    }
+  };
+
+  // Manejar cambio de mes
+  const handleMonthChange = (month) => {
+    console.log('🎯 Cambiando mes a:', month);
+    setSelectedMonth(month);
+    fetchData(selectedYear, month);
+  };
+
+  // Cargar todos los datos (sin filtros)
+  const loadAllData = () => {
+    console.log('🎯 Cargando todos los datos');
+    setSelectedYear('todos');
+    setSelectedMonth(null);
+    fetchData(null, null);
   };
 
   useEffect(() => {
     if (USER_UUID) {
-      fetchData();
+      // Cargar datos del año actual por defecto
+      console.log('🚀 Inicializando con usuario:', USER_UUID);
+      fetchData(new Date().getFullYear().toString(), null);
     }
   }, [USER_UUID]);
 
-  // Datos para gráficos
+  // Datos para gráficos - Estos se actualizan automáticamente cuando stats cambia
   const weightChartData = {
     labels: stats.fechasPeso || [],
     datasets: [
       {
-        data: stats.datosPeso || [0],
+        data: stats.datosPeso && stats.datosPeso.length > 0 ? stats.datosPeso : [0],
         color: () => '#64c27b',
         strokeWidth: 3,
       },
@@ -139,20 +211,20 @@ const ProgressScreen = () => {
       title: 'Peso Actual', 
       value: stats.ultimoPeso ? `${stats.ultimoPeso.toFixed(1)}` : '--', 
       unit: 'kg',
-      subtitle: stats.cambioPeso ? `${stats.cambioPeso > 0 ? '+' : ''}${stats.cambioPeso.toFixed(1)}kg` : 'Sin datos',
+      subtitle: stats.cambioPeso !== 0 ? `${stats.cambioPeso > 0 ? '+' : ''}${stats.cambioPeso.toFixed(1)}kg` : 'Sin cambio',
       subtitleColor: stats.cambioPeso > 0 ? '#e74c3c' : stats.cambioPeso < 0 ? '#2a8c4a' : '#666'
     },
-    { 
-      title: 'Objetivos', 
-      value: `${stats.objetivosCompletados || 0}/${stats.totalObjetivos || 0}`,
-      subtitle: 'Completados',
-      progress: stats.totalObjetivos ? (stats.objetivosCompletados / stats.totalObjetivos) * 100 : 0
-    },
-    { 
-      title: 'Progreso Promedio', 
-      value: stats.progresoPromedio ? `${stats.progresoPromedio.toFixed(0)}%` : '--',
-      subtitle: 'Todos los objetivos'
-    },
+    // { 
+    //   title: 'Objetivos', 
+    //   value: `${stats.objetivosCompletados || 0}/${stats.totalObjetivos || 0}`,
+    //   subtitle: 'Completados',
+    //   progress: stats.totalObjetivos ? (stats.objetivosCompletados / stats.totalObjetivos) * 100 : 0
+    // },
+    // { 
+    //   title: 'Progreso Promedio', 
+    //   value: stats.progresoPromedio ? `${stats.progresoPromedio.toFixed(0)}%` : '--',
+    //   subtitle: 'Todos los objetivos'
+    // },
     { 
       title: 'Registros', 
       value: `${stats.totalRegistros || 0}`,
@@ -176,26 +248,100 @@ const ProgressScreen = () => {
     <Layout title="Mi Progreso">
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         
-        {/* Selector de período */}
-        {/* <View style={styles.periodSelector}>
-          {['semanal', 'mensual', 'anual'].map((period) => (
-            <TouchableOpacity
-              key={period}
-              style={[
-                styles.periodButton,
-                selectedPeriod === period && styles.periodButtonActive,
-              ]}
-              onPress={() => setSelectedPeriod(period)}>
-              <Text
+        {/* Selector de período - Años */}
+        <View style={styles.periodSection}>
+          <Text style={styles.periodSectionTitle}>Año</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.periodScrollView}>
+            <View style={styles.periodSelector}>
+              {/* Opción "Todos" */}
+              <TouchableOpacity
                 style={[
-                  styles.periodButtonText,
-                  selectedPeriod === period && styles.periodButtonTextActive,
-                ]}>
-                {period.charAt(0).toUpperCase() + period.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View> */}
+                  styles.periodButton,
+                  selectedYear === 'todos' && styles.periodButtonActive,
+                ]}
+                onPress={loadAllData}>
+                <Text
+                  style={[
+                    styles.periodButtonText,
+                    selectedYear === 'todos' && styles.periodButtonTextActive,
+                  ]}>
+                  Todos
+                </Text>
+              </TouchableOpacity>
+              
+              {periodOptions.years.map((year) => (
+                <TouchableOpacity
+                  key={year}
+                  style={[
+                    styles.periodButton,
+                    selectedYear === year && styles.periodButtonActive,
+                  ]}
+                  onPress={() => handleYearChange(year)}>
+                  <Text
+                    style={[
+                      styles.periodButtonText,
+                      selectedYear === year && styles.periodButtonTextActive,
+                    ]}>
+                    {year}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+
+        {/* Selector de período - Meses (solo se muestra si hay un año seleccionado) */}
+        {selectedYear && selectedYear !== 'todos' && (
+          <View style={styles.periodSection}>
+            <Text style={styles.periodSectionTitle}>Mes</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.periodScrollView}>
+              <View style={styles.periodSelector}>
+                {/* Opción "Todos los meses" */}
+                <TouchableOpacity
+                  style={[
+                    styles.periodButton,
+                    selectedMonth === null && styles.periodButtonActive,
+                  ]}
+                  onPress={() => handleMonthChange(null)}>
+                  <Text
+                    style={[
+                      styles.periodButtonText,
+                      selectedMonth === null && styles.periodButtonTextActive,
+                    ]}>
+                    Todos
+                  </Text>
+                </TouchableOpacity>
+                
+                {periodOptions.months.map((month, index) => (
+                  <TouchableOpacity
+                    key={month}
+                    style={[
+                      styles.periodButton,
+                      selectedMonth === month && styles.periodButtonActive,
+                    ]}
+                    onPress={() => handleMonthChange(month)}>
+                    <Text
+                      style={[
+                        styles.periodButtonText,
+                        selectedMonth === month && styles.periodButtonTextActive,
+                      ]}>
+                      {month}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Indicador de filtros activos */}
+        <View style={styles.filterIndicator}>
+          <Text style={styles.filterIndicatorText}>
+            Mostrando datos: {selectedYear === 'todos' ? 'Todos los años' : selectedYear}
+            {selectedMonth && ` • ${selectedMonth}`}
+            {stats.totalRegistros > 0 && ` • ${stats.totalRegistros} registros`}
+          </Text>
+        </View>
 
         {/* Métricas principales */}
         <View style={styles.metricsContainer}>
@@ -224,7 +370,7 @@ const ProgressScreen = () => {
         </View>
 
         {/* Gráfico de Evolución de Peso */}
-        {stats.datosPeso && stats.datosPeso.length > 1 && (
+        {stats.datosPeso && stats.datosPeso.length > 1 ? (
           <View style={styles.chartCard}>
             <Text style={styles.chartTitle}>Evolución de Peso</Text>
             <Text style={styles.chartSubtitle}>
@@ -240,10 +386,17 @@ const ProgressScreen = () => {
               style={styles.chart}
             />
           </View>
-        )}
+        ) : stats.totalRegistros > 0 ? (
+          <View style={styles.chartCard}>
+            <Text style={styles.chartTitle}>Evolución de Peso</Text>
+            <Text style={styles.chartSubtitle}>
+              No hay suficientes registros para mostrar el gráfico (mínimo 2 registros)
+            </Text>
+          </View>
+        ) : null}
 
         {/* Gráfico de Progreso de Objetivos */}
-        {goals.length > 0 && (
+        {/* {goals.length > 0 && (
           <View style={styles.chartCard}>
             <Text style={styles.chartTitle}>Progreso de Objetivos</Text>
             <View style={styles.progressChartContainer}>
@@ -264,14 +417,14 @@ const ProgressScreen = () => {
               </Text>
             </View>
           </View>
-        )}
+        )} */}
 
         {/* Resumen de Objetivos */}
-        {goals.length > 0 && (
+        {/* {goals.length > 0 && (
           <View style={styles.chartCard}>
             <Text style={styles.chartTitle}>Tus Objetivos</Text>
             {goals.slice(0, 3).map((goal, index) => (
-              <View key={goal._id} style={styles.goalItem}>
+              <View key={goal._id || index} style={styles.goalItem}>
                 <View style={styles.goalHeader}>
                   <Text style={styles.goalTitle}>{goal.title}</Text>
                   <Text style={[
@@ -304,14 +457,17 @@ const ProgressScreen = () => {
               </Text>
             )}
           </View>
-        )}
+        )} */}
 
         {/* Mensaje si no hay datos */}
-        {weightHistory.length === 0 && goals.length === 0 && (
+        {stats.totalRegistros === 0 && goals.length === 0 && (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateTitle}>📊 Comienza tu seguimiento</Text>
+            <Text style={styles.emptyStateTitle}>📊 No hay datos</Text>
             <Text style={styles.emptyStateText}>
-              Registra tu primer peso y crea objetivos para ver tu progreso aquí.
+              {selectedYear === 'todos' 
+                ? 'No hay registros en tu historial' 
+                : `No hay registros para ${selectedYear}${selectedMonth ? ` - ${selectedMonth}` : ''}`
+              }
             </Text>
           </View>
         )}
@@ -337,17 +493,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
+  periodSection: {
+    marginBottom: 15,
+  },
+  periodSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2a8c4a',
+    marginBottom: 8,
+    marginLeft: 5,
+  },
+  periodScrollView: {
+    marginHorizontal: -5,
+  },
   periodSelector: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 20,
+    paddingHorizontal: 5,
   },
   periodButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    marginHorizontal: 5,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginHorizontal: 4,
     borderRadius: 20,
     backgroundColor: '#f0f0f0',
+    minWidth: 70,
+    alignItems: 'center',
   },
   periodButtonActive: {
     backgroundColor: '#64c27b',
@@ -355,9 +525,22 @@ const styles = StyleSheet.create({
   periodButtonText: {
     color: '#666',
     fontWeight: '500',
+    fontSize: 14,
   },
   periodButtonTextActive: {
     color: '#ffffff',
+  },
+  filterIndicator: {
+    backgroundColor: '#e8f5e8',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 15,
+    alignItems: 'center',
+  },
+  filterIndicatorText: {
+    color: '#2a8c4a',
+    fontSize: 14,
+    fontWeight: '500',
   },
   metricsContainer: {
     flexDirection: 'row',
