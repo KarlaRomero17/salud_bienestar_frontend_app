@@ -1,13 +1,27 @@
 import { SERVER_URI } from '@env';
+import tokenManager from '../utils/tokenManager';
 
-// Función helper para hacer fetch con timeout
+// Función helper para hacer fetch con timeout Y token de autenticación
 const fetchWithTimeout = async (url, options = {}, timeout = 10000) => {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
   
   try {
+    // 🔒 SEGURIDAD: Obtener el token de Firebase antes de cada petición
+    const token = await tokenManager.getToken();
+    
+    // Agregar el token al header Authorization si existe
+    const headers = {
+      ...options.headers,
+    };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
     const response = await fetch(url, {
       ...options,
+      headers,
       signal: controller.signal,
     });
     clearTimeout(id);

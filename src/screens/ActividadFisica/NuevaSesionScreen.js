@@ -2,14 +2,12 @@ import React, { useState, useCallback, useContext } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native'; 
 import { useFocusEffect } from '@react-navigation/native'; 
 import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios'; 
 import { AuthContext } from '../../context/AuthContext'; 
-import { SERVER_URI } from '@env';
+import secureApiClient from '../../api/secureApiClient';
 
-// ✅ Usar variable de entorno en lugar de IP hardcodeada
-const BASE_URL = `${SERVER_URI}/api`; 
-const API_URL_SESION = `${BASE_URL}/actividad/sesion`;
-const API_URL_SESION_HOY = `${BASE_URL}/actividad/sesion/hoy`;
+// ✅ Usar cliente seguro con token automático
+const API_URL_SESION = '/actividad/sesion';
+const API_URL_SESION_HOY = '/actividad/sesion/hoy';
 
 // 🎨 PALETA DE COLORES
 const COLORS = {
@@ -55,7 +53,7 @@ export default function NuevaSesionScreen({ navigation, route }) {
         setIsLoading(true);
         try {
             // Llama a GET /api/actividad/sesion/hoy/:pacienteId
-            const response = await axios.get(`${API_URL_SESION_HOY}/${idUsuario}`);
+            const response = await secureApiClient.get(`${API_URL_SESION_HOY}/${idUsuario}`);
             const data = response.data;
             
             if (data.sesionId) {
@@ -93,7 +91,7 @@ export default function NuevaSesionScreen({ navigation, route }) {
             };
             
             // Llama a POST /api/actividad/sesion
-            const response = await axios.post(API_URL_SESION, nuevaSesion);
+            const response = await secureApiClient.post(API_URL_SESION, nuevaSesion);
             
             if (response.data && response.data.sesionId) {
                 setSesionId(response.data.sesionId);
@@ -126,7 +124,7 @@ export default function NuevaSesionScreen({ navigation, route }) {
                         setIsLoading(true);
                         try {
                             // Llama a PUT /api/actividad/sesion/replace/:idSesion con el array filtrado
-                            await axios.put(`${API_URL_SESION}/replace/${sesionId}?action=replace`, { actividades: nuevasActividades });
+                            await secureApiClient.put(`${API_URL_SESION}/replace/${sesionId}?action=replace`, { actividades: nuevasActividades });
                             
                             // Si la llamada fue exitosa, actualiza el estado localmente
                             setActividades(nuevasActividades);
