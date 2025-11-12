@@ -36,13 +36,13 @@ function ActividadFisicaStack() {
       <Stack.Screen 
         name="MenuActividad" 
         component={MenuActividadScreen} 
-        options={{ headerShown: true }} // No muestra header en la pantalla principal de la tab
+        options={{ headerShown: false }}
       />
       <Stack.Screen 
         name="NuevaSesion" 
         component={NuevaSesionScreen}
         options={{
-          headerShown: true, // Muestra header cuando navegamos desde MenuActividad
+          headerShown: true, 
           title: 'Nueva Sesión',
           headerBackTitle: 'Atrás'
         }}
@@ -76,16 +76,16 @@ function MainTabs({ initialRouteName }) {
       screenOptions={{
         tabBarActiveTintColor: '#10b981',
         tabBarInactiveTintColor: '#64748b',
-        // ... (otros estilos)
+        
         headerShown: false,
       }}
     >
       <Tab.Screen name="Home" component={HomeScreen} 
         options={{ tabBarLabel: 'Inicio', tabBarIcon: ({ color, size }) => (<MaterialIcons name="home" color={color} size={size} />), }}
       />
-      {/* === 2. Usamos el Stack anidado como el componente de la Tab === */}
+      
       <Tab.Screen
-        name="ActividadFisica" // Nombre de la Tab. Para navegar, usaremos navigation.navigate('ActividadFisica', { screen: 'NuevaSesion' })
+        name="ActividadFisica" 
         component={ActividadFisicaStack} 
         options={{
           tabBarLabel: 'Entrenamientos',

@@ -4837,7 +4837,7 @@ react-native-screen@^1.0.1:
     react-native-is-edge-to-edge "^1.1.7"
     warn-once "^0.1.0"
 
-"react-native-svg@> 6.4.1", react-native-svg@15.11.2:
+react-native-svg@^15.11.2, "react-native-svg@> 6.4.1":
   version "15.11.2"
   resolved "https://registry.npmjs.org/react-native-svg/-/react-native-svg-15.11.2.tgz"
   integrity sha512-+YfF72IbWQUKzCIydlijV1fLuBsQNGMT6Da2kFlo1sh+LE3BIm/2Q7AR1zAAR6L0BFLi1WaQPLfFUC9bNZpOmw==

@@ -1,145 +1,226 @@
 import { Ionicons } from "@expo/vector-icons";
-import { FlatList, Image, KeyboardAvoidingView, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import axios from 'axios';
+import { useCallback, useContext, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AuthContext } from '../../context/AuthContext';
 
-const data = [
-  {
-    id: "1",
-    title: "Consejos para mantener una dieta equilibrada",
-    comments: 12,
-    avatar: "https://i.pravatar.cc/150?img=1",
-  },
-  {
-    id: "2",
-    title: "Rutinas de ejercicio para principiantes",
-    comments: 8,
-    avatar: "https://i.pravatar.cc/150?img=2",
-  },
-  {
-    id: "3",
-    title: "Meditación guiada para reducir el estrés",
-    comments: 15,
-    avatar: "https://i.pravatar.cc/150?img=3",
-  },
-  {
-    id: "4",
-    title: "Recetas saludables para el desayuno",
-    comments: 5,
-    avatar: "https://i.pravatar.cc/150?img=4",
-  },
-];
 
-export default function FurumScreen({navigation}) {
-  const renderItem = ({ item }) => (
-    <TouchableOpacity style={styles.card}
-     onPress={() => navigation.navigate('PublicationDetails', { post: item })} 
-     >
-      <Image source={{ uri: item.avatar }} style={styles.avatar} />
-      <View style={styles.textContainer}>
-        <Text style={styles.title}>{item.title}</Text>
-        <Text style={styles.comments}>{item.comments} comentarios</Text>
+const BASE_URL = Platform.OS == 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000'
+
+const ForumScreen = () => {
+  const { user } = useContext(AuthContext);
+  const [publicaciones, setPublicaciones] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const navigation = useNavigation();
+
+
+  const obtenerPublicaciones = async () => {
+    try {
+      const res = await axios.get(`${BASE_URL}/api/publicaciones`);
+      setPublicaciones(res.data);
+    } catch (error) {
+      console.log("Error al obtener publicaciones", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  //Llamando función
+  useFocusEffect(
+    useCallback(() => {
+      obtenerPublicaciones();
+    }, [])
+  );;
+
+  //Eliminando
+  const eliminarPublicacion = async (id) => {
+    try {
+      await axios.delete(`${BASE_URL}/api/publicaciones/${id}`);
+      setPublicaciones(publicaciones.filter(pub => pub._id !== id));
+      Alert.alert("Exito", "Publicación eliminada");
+    } catch (error) {
+      console.log("Error", "Error al eliminar publicación:", error);
+      Alert.alert("Error al eliminar la publicación");
+    }
+  };
+
+  if (loading && !refreshing) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2a8c4a" />
+        <Text style={styles.loadingText}>Cargando foro...</Text>
       </View>
-      <Ionicons name="chevron-forward" size={20} color="#555" />
-    </TouchableOpacity>
-  );
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        behavior='height'
-        style={styles.container}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={{ flex: 1 }}>
-            <FlatList
-              data={data}
-              keyExtractor={(item) => item.id}
-              renderItem={renderItem}
-              contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
-              scrollEnabled={false}
-            />
-            {/* Agregar nueva Publicación */}
-            <TouchableOpacity style={styles.fab}
-              onPress={() => navigation.navigate('NewPublication')}
-            >
-              <Ionicons name="add" size={28} color="#fff" />
-            </TouchableOpacity>
+    <View style={styles.container}>
+
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Foro</Text>
+        <Text style={styles.headerSubtitle}>Comparte tus opiniones con la comunidad</Text>
+      </View>
+
+      <FlatList
+        data={publicaciones}
+        keyExtractor={item => item._id}
+        renderItem={({ item }) => (
+          <View style={styles.card}>
+            {/* Contenedor superior con título y botones */}
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>{item.titulo}</Text>
+
+              {/* Mostrar botones solo si el usuario logueado es el autor */}
+              {user && user.email === item.autor && (
+                <View style={styles.buttonContainer}>
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate('NewPublication', { publicacion: item })}
+                    style={styles.editButton}
+                  >
+                    <Ionicons name="create-outline" size={20} color='green' />
+
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => eliminarPublicacion(item._id)}
+                    style={styles.deleteButton}
+                  >
+                    <Ionicons name="trash-outline" size={20} color='red' />
+
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+
+            {/* Contenido y autor */}
+            <TouchableOpacity
+              onPress={() => navigation.navigate('PublicationDetails', { publicacion: item })}
+            >
+              <Text numberOfLines={2} style={styles.cardContent}>{item.contenido}</Text>
+              <Text style={styles.cardAuthor}>Por {item.autor}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      />
+
+      {/* Agregar nueva publicación */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('NewPublication')}
+      >
+        <Ionicons name="add" size={32} color="white" />
+      </TouchableOpacity>
+    </View>
 
   );
-}
-
+};
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
     backgroundColor: '#f8fafc',
   },
 
-  container: {
+  //cargando....
+  loadingContainer: {
     flex: 1,
-    paddingTop: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#666',
+    fontSize: 16,
+  },
+  loading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'space-between',
+  //header
+  header: {
+    backgroundColor: '#2a8c4a',
+    padding: 20,
+    paddingTop: 40,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#d0fdd7',
+    marginTop: 5,
   },
 
-  formContainer: {
-    paddingHorizontal: 32,
-    paddingBottom: 30,
-  },
-  
+  //card publicación
   card: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 16,
+    backgroundColor: '#f9f9f9',
     padding: 16,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    margin: 15,
+    borderRadius: 10,
+    elevation: 2, // para Android
+    shadowColor: '#000', // para iOS
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  editButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  deleteButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 14,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  cardContent: {
+    fontSize: 14,
+    color: '#555',
+    marginTop: 4,
+  },
+  cardAuthor: {
+    color: 'gray',
+    marginTop: 6,
+    fontStyle: 'italic',
   },
 
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 14,
-  },
-
-  textContainer: {
-    flex: 1,
-  },
-
-  title: {
-    fontWeight: "700",
-    fontSize: 17,
-    color: "#000",
-    marginBottom: 4,
-  },
-
-  comments: {
-    color: "#2a8c4a",
-    fontSize: 13,
-  },
-
-  //Agregar publicación
+  //agregar nuevo
   fab: {
-    position: "absolute",
-    bottom: 30,
-    right: 25,
-    backgroundColor: "#2a8c4a",
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    backgroundColor: '#2a8c4a',
+    borderRadius: 30,
     width: 60,
     height: 60,
-    borderRadius: 30,
-    alignItems: "center",
-    justifyContent: "center",
-    elevation: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5, // Android
+    shadowColor: '#000', // iOS
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
   },
 });
+
+export default ForumScreen;
