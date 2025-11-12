@@ -1,5 +1,3 @@
-// src/screens/ActividadFisica/AgregarActividadScreen.js - CÓDIGO FINAL CORREGIDO (API Save Fix)
-
 import React, { useState, useEffect, useCallback } from 'react'; 
 import { 
     View, 
@@ -15,6 +13,7 @@ import {
 import { Picker } from '@react-native-picker/picker'; 
 import axios from 'axios'; 
 import { Ionicons } from '@expo/vector-icons'; 
+
 
 
 const BASE_URL = 'http://10.0.2.2:5000/api/actividad';
@@ -61,7 +60,7 @@ export default function AgregarActividadScreen({ navigation, route }) {
     });
 
 
-    // OBTENER CATÁLOGO DE DATOS DEL BACKEND (Sin cambios)
+ 
     const fetchCatalogo = useCallback(async () => {
         setIsLoadingData(true);
         try {
