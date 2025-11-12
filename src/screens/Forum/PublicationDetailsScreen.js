@@ -1,7 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from 'react';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import axios from 'axios';
+import { useContext, useEffect, useState } from 'react';
 import {
+    FlatList,
     KeyboardAvoidingView,
+    Platform,
     SafeAreaView,
     ScrollView,
     StyleSheet,
@@ -10,24 +14,86 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { AuthContext } from '../../context/AuthContext';
 
+//IP del emulador de android studio
+const BASE_URL = Platform.OS == 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000'
 
 export default function PublicationDetailsScreen() {
-    const [comment, setComment] = useState("");
-    const comments = [
-        {
-            id: 1,
-            name: "Carlos López",
-            date: "10 de mayo",
-            text: "Excelentes consejos, Sofía. La planificación de comidas es algo que realmente me ha ayudado a mantener una dieta más saludable.",
-        },
-        {
-            id: 2,
-            name: "Ana Martínez",
-            date: "12 de mayo",
-            text: "Gracias por compartir estos consejos. Siempre es bueno tener recordatorios sobre cómo mejorar nuestra alimentación.",
-        },
-    ];
+    const { user } = useContext(AuthContext);
+    const route = useRoute();
+    const navigation = useNavigation();
+    const { publicacion } = route.params;
+    const { id } = route.params;
+    const [data, setData] = useState(publicacion || null);
+    const [comentarios, setComentarios] = useState([]);
+    const [comment, setComment] = useState(''); //nuevo comentario
+    const [loading, setLoading] = useState(!publicacion);
+
+    useEffect(() => {
+        if (!publicacion && id) {
+            // Si solo viene el id, cargamos los datos desde el backend
+            const obtenerPublicacion = async () => {
+                try {
+                    const res = await axios.get(`${BASE_URL}/api/publicaciones/${id}`);
+                    setData(res.data);
+                } catch (error) {
+                    console.log("Error al cargar detalle", error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            obtenerPublicacion();
+        }
+    }, []);
+
+    //Comentarios
+    useEffect(() => {
+        const obtenerComentarios = async () => {
+            try {
+                const res = await axios.get(`${BASE_URL}/api/comentarios/publicacion/${publicacion._id}`);
+                setComentarios(res.data);
+            } catch (error) {
+                console.log('Error al cargar comentarios:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        obtenerComentarios();
+    }, [publicacion]);
+
+    // Agregar comentario
+    const agregarComentario = async () => {
+        if (!comment.trim()) return; // no enviar si está vacío
+
+        try {
+            const nueva = {
+                contenido: comment,
+                autor: user?.email || '',
+                publicacionId: data._id,
+            };
+            // Enviar al backend
+            const res = await axios.post(`${BASE_URL}/api/comentarios`, nueva);
+            // Agregar a la lista local sin recargar
+            setComentarios(prev => [res.data.comentario, ...prev]);
+
+            // Limpiar input
+            setComment('');
+        } catch (error) {
+            console.log('Error al agregar comentario:', error);
+        }
+    };
+
+    // Eliminar comentario
+    const eliminarComentario = async (id) => {
+        try {
+            await axios.delete(`${BASE_URL}/api/comentarios/${id}`);
+            setComentarios(comentarios.filter(c => c._id !== id));
+        } catch (error) {
+            console.log('Error al eliminar comentario:', error);
+        }
+    };
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <KeyboardAvoidingView
@@ -38,57 +104,63 @@ export default function PublicationDetailsScreen() {
                     <View style={{ flex: 1 }}>
                         {/* Título y autor */}
                         <View style={styles.postHeader}>
-                            <Text style={styles.title}>Consejos para mantener una dieta equilibrada</Text>
-                            <Text style={styles.author}>Por Sofía García • 12 de mayo</Text>
+                            <Text style={styles.title}>{data?.titulo}</Text>
+                            <Text style={styles.author}>Por {data?.autor} • {new Date(data?.createdAt).toLocaleDateString()}</Text>
                         </View>
 
                         {/* Contenido */}
-                        <Text style={styles.contenido}>
-                            Donec sapien odio, suscipit vitae consequat nec, pretium vitae est.
-                            Pellentesque varius, enim ut accumsan scelerisque, mi velit fringilla nisl, in consectetur magna nulla at risus.
-                            Nulla non eleifend ipsum. Integer accumsan finibus bibendum. {"\n"}{"\n"}
-                            Sed dictum justo quis ornare vehicula. Praesent sit amet gravida lacus.
-                            Proin eros nisl, euismod eget enim eu, hendrerit pulvinar dui.
-                            Aenean tincidunt efficitur tincidunt. Sed molestie ligula ligula, vel accumsan tortor ullamcorper sit amet. {"\n"}
-                            Sed hendrerit, tortor sit amet placerat egestas, sapien augue maximus magna, ac lacinia lacus dolor eget justo.
-
-                        </Text>
+                        <Text style={styles.contenido}>{data?.contenido}</Text>
 
                         {/* Separador */}
                         <View style={styles.separator}>
                             <View style={styles.separatorLine} />
                         </View>
 
-                        {/* Comentarios */}
-                        <Text style={styles.commentHeader}>Comentarios</Text>
-                        {comments.map((c) => (
-                            <View key={c.id} style={styles.commentBox}>
-                                <View style={styles.commentHeaderRow}>
-                                    <Ionicons name="person-circle-outline" size={36} color="#666" />
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.commentName}>{c.name}</Text>
-                                        <Text style={styles.commentDate}>{c.date}</Text>
+
+                        <Text style={styles.subtitle}>Comentarios</Text>
+
+                        {comentarios.length === 0 ? (
+                            <Text style={styles.noComments}>Aún no hay comentarios</Text>
+                        ) : (
+                            <FlatList
+                                data={comentarios}
+                                keyExtractor={(item) => item._id}
+                                scrollEnabled={false}
+                                renderItem={({ item }) => (
+                                    <View style={styles.commentBox}>
+                                        <Text style={styles.commentName}>{item.autor}</Text>
+                                        <Text style={styles.commentDate}>{new Date(data?.createdAt).toLocaleDateString()}</Text>
+                                        <Text style={styles.commentText}>{item.contenido}</Text>
+
+                                        {/* Botones de editar y eliminar solo si es el mismo usuario */}
+                                        {user.email === item.autor && (
+                                            <View style={{ flexDirection: 'row', gap: 8 }}>
+                                                <TouchableOpacity onPress={() => eliminarComentario(item._id)}>
+                                                    <Ionicons name="trash-outline" size={20} color='red' />
+                                                </TouchableOpacity>
+                                            </View>
+                                        )}
                                     </View>
-                                </View>
-                                <Text style={styles.commentText}>{c.text}</Text>
-                            </View>
-                        ))}
 
-                        {/* Añadir comentario */}
-                        <View style={styles.addComment}>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Añadir un comentario..."
-                                value={comment}
-                                onChangeText={setComment}
+
+                                )}
                             />
-                            <TouchableOpacity style={styles.sendButton}>
-                                <Ionicons name="send" size={20} color="#fff" />
-                            </TouchableOpacity>
-                        </View>
-
+                        )}
                     </View>
                 </ScrollView>
+
+                {/* Añadir comentario */}
+                <View style={styles.addComment}>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Añadir un comentario..."
+                        value={comment}
+                        onChangeText={setComment}
+                    />
+                    <TouchableOpacity onPress={agregarComentario} style={styles.sendButton}>
+                        <Ionicons name="send" size={20} color="#fff" />
+                    </TouchableOpacity>
+                </View>
             </KeyboardAvoidingView>
         </SafeAreaView>
     )
@@ -175,6 +247,7 @@ const styles = StyleSheet.create({
     commentText: {
         fontSize: 14,
         color: "#333",
+        margin: 10,
     },
 
     //Añadir Comentarios
@@ -200,4 +273,22 @@ const styles = StyleSheet.create({
         borderRadius: 20,
     },
 
+    deleteButton: {
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+    },
+
+    subtitle: {
+        fontSize: 19,
+        fontWeight: '600',
+        marginBottom: 10,
+        marginLeft: 15,
+        color: '#334155'
+    },
+    noComments: {
+        fontSize: 15,
+        color: '#94a3b8',
+        textAlign: 'center',
+        marginTop: 10
+    }
 })
