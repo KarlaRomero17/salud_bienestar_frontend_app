@@ -98,11 +98,11 @@ export const userService = {
   // Calcular grasa corporal (fórmula simplificada)
   calcularGrasaCorporal: (peso, altura, edad, genero, medidaCintura = null) => {
     let grasaCorporal;
-    
+
     if (genero === 'masculino') {
-      grasaCorporal = (1.20 * (peso / ((altura/100) * (altura/100)))) + (0.23 * edad) - 16.2;
+      grasaCorporal = (1.20 * (peso / ((altura / 100) * (altura / 100)))) + (0.23 * edad) - 16.2;
     } else {
-      grasaCorporal = (1.20 * (peso / ((altura/100) * (altura/100)))) + (0.23 * edad) - 5.4;
+      grasaCorporal = (1.20 * (peso / ((altura / 100) * (altura / 100)))) + (0.23 * edad) - 5.4;
     }
 
     // Ajustar con medida de cintura si está disponible

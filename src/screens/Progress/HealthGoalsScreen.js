@@ -150,7 +150,7 @@ const HealthGoalsScreen = ({ navigation }) => {
   // Efecto para recalcular progresos cuando cambia el peso actual
   useEffect(() => {
     if (currentUser?.peso_actual && goals.length > 0) {
-      console.log('🔄 Recalculando progresos por cambio de peso...');
+      console.log('Recalculando progresos por cambio de peso...');
       const updatedGoals = goals.map(goal => ({
         ...goal,
         progress: calculateProgress(goal, currentUser.peso_actual)
@@ -176,15 +176,20 @@ const HealthGoalsScreen = ({ navigation }) => {
     }
 
     try {
+      // EL PESO INICIAL DEBE SER FIJO - usar el peso actual del usuario al crear el objetivo
+      const initialWeightForGoal = currentUser?.peso_actual;
+
       const goalData = {
         title: newGoal.title,
         type: newGoal.type,
         targetWeight: parseFloat(newGoal.targetWeight),
         unit: newGoal.unit,
         targetDate: newGoal.targetDate,
-        initialWeight: newGoal.initialWeight ? parseFloat(newGoal.initialWeight) : currentUser?.peso_actual,
+        initialWeight: initialWeightForGoal,
         userId: USER_UUID
       };
+
+      console.log('Creando objetivo con peso inicial FIJO:', initialWeightForGoal);
 
       const result = await objetivosService.crear(goalData);
 
@@ -247,7 +252,7 @@ const HealthGoalsScreen = ({ navigation }) => {
         unidad: pesoData.unidad
       };
 
-      console.log('Datos a enviar al backend:', apiPesoData);
+    console.log('Datos a enviar al backend:', apiPesoData);
 
       // 1. Registrar nuevo peso en el backend
       const result = await userService.registrarPeso(USER_UUID, apiPesoData);
@@ -293,12 +298,17 @@ const HealthGoalsScreen = ({ navigation }) => {
       setCalculandoProgreso(false);
     }
   };
+   const getCurrentWeight = () => {
+    if (weightHistory.length > 0) {
+      return weightHistory[0].peso; // El más reciente
+    }
+    return currentUser?.peso_actual; // Fallback al perfil
+  };
 
   // Recalcular progreso de todos los objetivos y marcar como completados
-  // Recalcular progreso de todos los objetivos y marcar como completados - MEJORADA
   const recalculateAllGoalsProgress = async (currentWeight) => {
     try {
-      console.log('📊 Recalculando progresos para', goals.length, 'objetivos');
+      console.log('Recalculando progresos para', goals.length, 'objetivos');
       console.log('Peso actual para cálculo:', currentWeight);
 
       let objetivosActualizados = 0;
@@ -313,18 +323,18 @@ const HealthGoalsScreen = ({ navigation }) => {
           const nuevoProgreso = calculateProgress(goal, currentWeight);
           const completado = isGoalCompleted(goal, currentWeight);
 
-          console.log(`🎯 "${goal.title}": Progreso actual ${goal.progress}% → Nuevo ${nuevoProgreso}%, Completado: ${completado}`);
+          console.log(`"${goal.title}": Progreso actual ${goal.progress}% → Nuevo ${nuevoProgreso}%, Completado: ${completado}`);
 
           // Si está completado y antes no lo estaba
           if (completado && nuevoProgreso >= 100) {
-            console.log(`🎉 Marcando "${goal.title}" como COMPLETADO!`);
+            console.log(`Marcando "${goal.title}" como COMPLETADO!`);
             await objetivosService.marcarCompletado(goal._id);
             objetivosCompletados++;
             needsRefresh = true;
           }
           // Si hay un cambio significativo en el progreso (más de 1% de diferencia)
           else if (Math.abs(goal.progress - nuevoProgreso) >= 1) {
-            console.log(`📈 Actualizando progreso de "${goal.title}": ${goal.progress}% → ${nuevoProgreso}%`);
+            console.log(`Actualizando progreso de "${goal.title}": ${goal.progress}% → ${nuevoProgreso}%`);
             await objetivosService.actualizarProgreso(goal._id, nuevoProgreso);
             objetivosActualizados++;
             needsRefresh = true;
@@ -332,14 +342,14 @@ const HealthGoalsScreen = ({ navigation }) => {
         }
       }
 
-      console.log(`✅ Progresos recalculados: ${objetivosActualizados} actualizados, ${objetivosCompletados} completados`);
+      console.log(`Progresos recalculados: ${objetivosActualizados} actualizados, ${objetivosCompletados} completados`);
 
       // Recargar los objetivos para reflejar los cambios SOLO si hubo cambios
       if (needsRefresh) {
-        console.log('🔄 Recargando lista de objetivos...');
+        console.log('Recargando lista de objetivos...');
         await refreshGoalsOnly();
       } else {
-        console.log('ℹ️ No hay cambios significativos en los progresos');
+        console.log('ℹNo hay cambios significativos en los progresos');
       }
 
     } catch (error) {
@@ -351,11 +361,11 @@ const HealthGoalsScreen = ({ navigation }) => {
   // Función para recargar solo objetivos sin causar bucle
   const refreshGoalsOnly = async () => {
     try {
-      console.log('🔄 Recargando solo objetivos...');
+      console.log('Recargando solo objetivos...');
       const goalsResult = await objetivosService.obtenerTodos(USER_UUID);
       if (goalsResult.exito) {
         setGoals(goalsResult.datos);
-        console.log('✅ Objetivos recargados:', goalsResult.datos.length);
+        console.log('Objetivos recargados:', goalsResult.datos.length);
       }
     } catch (error) {
       console.error('Error recargando objetivos:', error);
@@ -363,23 +373,22 @@ const HealthGoalsScreen = ({ navigation }) => {
   };
 
   // Calcular progreso basado en peso actual
-  // Función mejorada para calcular progreso
   const calculateProgress = (goal, currentWeight) => {
     const target = goal.targetWeight;
-    // Usar el initialWeight del objetivo O el peso actual del usuario
-    const initial = goal.initialWeight || currentUser?.peso_actual || currentWeight;
+    // USAR SIEMPRE EL initialWeight DEL OBJETIVO (que es fijo)
+    const initial = goal.initialWeight;
 
-    console.log('🔍 Datos del cálculo:', {
+    console.log('Datos del cálculo:', {
       title: goal.title,
-      initial: initial,
-      current: currentWeight,
-      target: target,
+      initial: initial, // ← Peso inicial fijo del objetivo
+      current: currentWeight, // ← Peso actual del historial
+      target: target, // ← Meta del objetivo
       type: goal.type
     });
 
     // Si no hay datos suficientes, retornar 0
     if (!initial || !currentWeight || !target) {
-      console.log(`⚠️ Datos insuficientes: initial=${initial}, current=${currentWeight}, target=${target}`);
+      console.log(`Datos insuficientes: initial=${initial}, current=${currentWeight}, target=${target}`);
       return 0;
     }
 
@@ -389,39 +398,49 @@ const HealthGoalsScreen = ({ navigation }) => {
       // Pérdida de peso: progreso = (peso perdido / peso a perder) * 100
       const totalToLose = initial - target;
 
+      console.log(`"${goal.title}": Total a perder = ${initial} - ${target} = ${totalToLose}kg`);
+
       // Si el objetivo ya está cumplido
       if (currentWeight <= target) {
         progress = 100;
+        console.log(`"${goal.title}": Ya alcanzó el objetivo!`);
       }
       // Si no hay nada que perder (meta inválida)
       else if (totalToLose <= 0) {
         progress = 100;
+        console.log(`"${goal.title}": Meta inválida (ya está en o por debajo del objetivo)`);
       }
       else {
         const currentLoss = initial - currentWeight;
         progress = (currentLoss / totalToLose) * 100;
+        console.log(`"${goal.title}": Pérdida actual = ${initial} - ${currentWeight} = ${currentLoss}kg, Progreso = ${progress.toFixed(1)}%`);
       }
 
     } else {
       // Ganancia de masa: progreso = (peso ganado / peso a ganar) * 100
       const totalToGain = target - initial;
 
+      console.log(`"${goal.title}": Total a ganar = ${target} - ${initial} = ${totalToGain}kg`);
+
       // Si el objetivo ya está cumplido
       if (currentWeight >= target) {
         progress = 100;
+        console.log(`"${goal.title}": Ya alcanzó el objetivo!`);
       }
       // Si no hay nada que ganar (meta inválida)
       else if (totalToGain <= 0) {
         progress = 100;
+        console.log(`"${goal.title}": Meta inválida (ya está en o por encima del objetivo)`);
       }
       else {
         const currentGain = currentWeight - initial;
         progress = (currentGain / totalToGain) * 100;
+        console.log(`"${goal.title}": Ganancia actual = ${currentWeight} - ${initial} = ${currentGain}kg, Progreso = ${progress.toFixed(1)}%`);
       }
     }
 
     const progresoFinal = Math.min(Math.max(progress, 0), 100);
-    console.log(`🎯 "${goal.title}": Progreso final = ${progresoFinal.toFixed(1)}%`);
+    console.log(`"${goal.title}": Progreso final = ${progresoFinal.toFixed(1)}%`);
 
     return progresoFinal;
   };
@@ -443,7 +462,7 @@ const HealthGoalsScreen = ({ navigation }) => {
       completed = currentWeight >= target;
     }
 
-    console.log(`🎯 "${goal.title}" - Completado: ${completed} (${currentWeight} ${goal.unit} vs ${target} ${goal.unit})`);
+    console.log(`"${goal.title}" - Completado: ${completed} (${currentWeight} ${goal.unit} vs ${target} ${goal.unit})`);
 
     return completed;
   };
@@ -554,7 +573,7 @@ const HealthGoalsScreen = ({ navigation }) => {
       <View style={styles.currentWeightInfo}>
         <Text style={styles.currentWeightText}>
           Peso actual: <Text style={styles.weightValue}>
-            {currentUser?.peso_actual || 'No registrado'} {currentUser?.unidad_peso || 'kg'}
+            {peso_inicial || 'No registrado'} {currentUser?.unidad_peso || 'kg'} 
           </Text>
         </Text>
         {weightHistory[0]?.grasa_corporal && (
@@ -586,8 +605,8 @@ const HealthGoalsScreen = ({ navigation }) => {
             onEdit={editGoal}
             onDelete={deleteGoal}
             onComplete={markGoalAsCompleted}
-            currentWeight={currentUser?.peso_actual} // ← AÑADE ESTO
-            calculateProgress={calculateProgress} 
+            currentWeight={getCurrentWeight()} 
+            calculateProgress={calculateProgress}
           />
         )}
         keyExtractor={item => item._id}

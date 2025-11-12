@@ -1,4 +1,4 @@
-// components/GoalCard.js
+// components/objetivos/GoalCard.js
 import React from 'react';
 import {
   View,
@@ -14,12 +14,11 @@ const GoalCard = ({
   onEdit, 
   onDelete, 
   onComplete,
-  currentWeight, // ← NUEVO: Recibe el peso actual
-  calculateProgress // ← NUEVO: Recibe la función de cálculo
+  currentWeight, 
+  calculateProgress
 }) => {
   // Calcular el progreso automáticamente
-  const calculatedProgress = calculateProgress ? calculateProgress(goal, currentWeight) : goal.progress;
-  const progress = goal.completed ? 100 : calculatedProgress;
+  const progress = calculateProgress ? calculateProgress(goal, currentWeight) : goal.progress;
 
   const formatDisplayDate = (dateString) => {
     if (!dateString) return '';
@@ -31,17 +30,6 @@ const GoalCard = ({
     });
   };
 
-  // Calcular días restantes
-  const getDaysRemaining = () => {
-    if (!goal.targetDate) return null;
-    const today = new Date();
-    const targetDate = new Date(goal.targetDate);
-    const days = Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24));
-    return days;
-  };
-
-  const daysRemaining = getDaysRemaining();
-
   const getProgressColor = (progress) => {
     if (progress >= 100) return '#4caf50';
     if (progress >= 75) return '#8bc34a';
@@ -49,39 +37,6 @@ const GoalCard = ({
     if (progress >= 25) return '#ff9800';
     return '#f44336';
   };
-
-  // Calcular información de progreso detallada
-  const getProgressDetails = () => {
-    if (!currentWeight || !goal.initialWeight || !goal.targetWeight) return null;
-    
-    const initial = goal.initialWeight;
-    const current = currentWeight;
-    const target = goal.targetWeight;
-    
-    if (goal.type === 'loss') {
-      const lost = initial - current;
-      const totalToLose = initial - target;
-      const remaining = Math.max(0, current - target);
-      
-      return {
-        achieved: Math.max(0, lost),
-        remaining: remaining,
-        unit: goal.unit
-      };
-    } else {
-      const gained = current - initial;
-      const totalToGain = target - initial;
-      const remaining = Math.max(0, target - current);
-      
-      return {
-        achieved: Math.max(0, gained),
-        remaining: remaining,
-        unit: goal.unit
-      };
-    }
-  };
-
-  const progressDetails = getProgressDetails();
 
   return (
     <View style={[
@@ -115,40 +70,22 @@ const GoalCard = ({
           ]}>
             {goal.type === 'gain' ? 'Aumentar' : 'Reducir'} a {goal.targetWeight} {goal.unit}
           </Text>
-          <Text style={styles.goalDate}>
-            Para: {formatDisplayDate(goal.targetDate)}
-            {daysRemaining !== null && !goal.completed && (
-              <Text style={[
-                styles.daysRemaining,
-                daysRemaining <= 7 && styles.daysWarning,
-                daysRemaining < 0 && styles.daysOverdue
-              ]}>
-                {daysRemaining > 0 ? ` (${daysRemaining} días)` : ' ¡Vencido!'}
-              </Text>
-            )}
+          <Text style={[
+            styles.goalTarget,
+            goal.completed && styles.completedGoalTarget
+          ]}>
+            Fecha objetivo: {formatDisplayDate(goal.targetDate)}
           </Text>
-          
-          {/* Información de progreso detallada */}
-          {progressDetails && !goal.completed && (
-            <View style={styles.progressDetails}>
-              <Text style={styles.progressDetailText}>
-                {goal.type === 'loss' ? 'Perdido' : 'Ganado'}: {progressDetails.achieved.toFixed(1)} {goal.unit}
-              </Text>
-              <Text style={styles.progressDetailText}>
-                Restante: {progressDetails.remaining.toFixed(1)} {goal.unit}
-              </Text>
-            </View>
-          )}
         </View>
         
         <View style={styles.actionsContainer}>
-          {!goal.completed && (
+          {/* {!goal.completed && (
             <TouchableOpacity
               style={styles.completeButton}
               onPress={() => onComplete(goal._id)}>
               <Icon name="check-circle" size={24} color="#2a8c4a" />
             </TouchableOpacity>
-          )}
+          )} */}
           <TouchableOpacity
             style={styles.editButton}
             onPress={() => onEdit(goal)}>
@@ -163,7 +100,7 @@ const GoalCard = ({
       </View>
       
       {/* Barra de progreso */}
-      <View style={styles.progressContainer}>
+      {/* <View style={styles.progressContainer}>
         <View style={styles.progressBar}>
           <View
             style={[
@@ -181,20 +118,7 @@ const GoalCard = ({
         ]}>
           {progress.toFixed(1)}%
         </Text>
-      </View>
-
-      {/* Información de pesos */}
-      <View style={styles.weightInfo}>
-        <Text style={styles.weightText}>
-          Inicial: {goal.initialWeight || currentWeight || 'N/A'} {goal.unit}
-        </Text>
-        <Text style={styles.weightText}>
-          Actual: {currentWeight || 'No registrado'} {goal.unit}
-        </Text>
-        <Text style={styles.weightText}>
-          Objetivo: {goal.targetWeight} {goal.unit}
-        </Text>
-      </View>
+      </View> */}
     </View>
   );
 };
@@ -253,28 +177,27 @@ const styles = StyleSheet.create({
   goalTarget: {
     fontSize: 14,
     color: '#666',
-    fontWeight: '600',
     marginBottom: 2,
   },
   completedGoalTarget: {
     color: '#888',
     textDecorationLine: 'line-through',
   },
-  goalDate: {
+  // NUEVOS ESTILOS PARA INFORMACIÓN DE PESOS
+  weightInfo: {
+    marginVertical: 8,
+    padding: 8,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 6,
+  },
+  weightText: {
     fontSize: 12,
     color: '#666',
-    marginBottom: 5,
+    marginBottom: 2,
   },
-  daysRemaining: {
+  weightLabel: {
     fontWeight: '600',
     color: '#2a8c4a',
-  },
-  daysWarning: {
-    color: '#ff9800',
-  },
-  daysOverdue: {
-    color: '#f44336',
-    fontWeight: 'bold',
   },
   progressContainer: {
     flexDirection: 'row',
@@ -297,25 +220,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     minWidth: 40,
-  },
-  progressDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 5,
-  },
-  progressDetailText: {
-    fontSize: 11,
-    color: '#666',
-    fontStyle: 'italic',
-  },
-  weightInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 5,
-  },
-  weightText: {
-    fontSize: 11,
-    color: '#666',
   },
   completeButton: {
     padding: 8,
