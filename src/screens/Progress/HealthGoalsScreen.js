@@ -1,4 +1,4 @@
-// HealthGoalsScreen.js
+
 import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
@@ -19,11 +19,10 @@ import GoalFormModal from '../../components/objetivos/GoalFormModal';
 import UpdateWeightButton from '../../components/peso/UpdateWeightButton';
 import WeightHistoryModal from '../../components/peso/WeightHistoryModal';
 import DatePickerModal from '../../components/objetivos/DatePickerModal';
-
 import { AuthContext } from '../../context/AuthContext';
 
-const HealthGoalsScreen = () => {
-  const { user, token, email } = useContext(AuthContext);
+const HealthGoalsScreen = ({ navigation} ) => {
+  const { user } = useContext(AuthContext);
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -31,7 +30,7 @@ const HealthGoalsScreen = () => {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [dateModalVisible, setDateModalVisible] = useState(false);
   const [weightHistoryVisible, setWeightHistoryVisible] = useState(false);
-  
+
   const [newGoal, setNewGoal] = useState({
     title: '',
     type: 'loss',
@@ -56,15 +55,16 @@ const HealthGoalsScreen = () => {
     { id: 'lb', name: 'lb' },
   ];
 
-  // UUID del usuario (en una app real esto vendría del contexto de autenticación)
-  const USER_UUID = '-OdER-8T0_WKhxrfi5HY'; // Cambia por el UUID real
+  const USER_UUID = user?.uid;
 
   // Cargar datos iniciales
   const fetchData = async () => {
     try {
       setLoading(true);
       setUserLoading(true);
-      
+
+      // console.log('UUID del usuario:', USER_UUID);
+
       // Cargar objetivos
       const goalsResult = await objetivosService.obtenerTodos();
       if (goalsResult.exito) {
@@ -75,7 +75,7 @@ const HealthGoalsScreen = () => {
       await loadUserData();
 
     } catch (error) {
-      console.error('Error fetching data:', error);
+      // console.error('Error fetching data:', error);
       Alert.alert('Error', error.message || 'Error al cargar los datos');
     } finally {
       setLoading(false);
@@ -87,55 +87,49 @@ const HealthGoalsScreen = () => {
   // Cargar datos del usuario
   const loadUserData = async () => {
     try {
+      // console.log('Intentando obtener perfil del usuario con UUID:', USER_UUID);
+
       // Intentar obtener usuario existente
       const userResult = await userService.obtenerPerfil(USER_UUID);
+      // console.log('Perfil obtenido:', userResult);
+
       if (userResult.exito) {
         setCurrentUser(userResult.datos);
-        
+
+        // console.log('Cargando historial de peso...');
         // Cargar historial de peso
         const historialResult = await userService.obtenerHistorialPeso(USER_UUID);
+        // console.log('Historial obtenido:', historialResult);
+
         if (historialResult.exito) {
           setWeightHistory(historialResult.datos || []);
+          // console.log(`${historialResult.datos?.length || 0} registros cargados`);
+        } else {
+          // console.error('Error en respuesta del historial:', historialResult.mensaje);
         }
       }
     } catch (error) {
-      // Si el usuario no existe, crear uno por defecto
-      console.log('Usuario no encontrado, creando uno por defecto...');
-      await createDefaultUser();
-    }
-  };
+      // console.error('Error completo en loadUserData:', error);
+      // console.error('Mensaje de error:', error.message);
 
-  // Crear usuario por defecto
-  const createDefaultUser = async () => {
-    try {
-      const userData = {
-        email: user?.email,
-        token: user?.token + Date.now(),
-        peso_actual: 70,
-        altura:  0,
-        edad: 30,
-        unidad_peso: 'kg'
-      };
-
-      const result = await userService.crearUsuario(userData);
-      if (result.exito) {
-        setCurrentUser(result.datos);
-        Alert.alert('¡Bienvenido!', 'Perfil creado exitosamente');
+      // Mostrar alerta solo si no es error 404 (usuario no existe)
+      if (!error.message.includes('404') && !error.message.includes('no encontrado')) {
+        Alert.alert('Error', `No se pudieron cargar los datos: ${error.message}`);
       }
-    } catch (error) {
-      console.error('Error creando usuario:', error);
-      Alert.alert('Error', 'No se pudo crear el perfil de usuario');
     }
   };
 
+  // Resto del código se mantiene igual...
   const onRefresh = () => {
     setRefreshing(true);
     fetchData();
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (USER_UUID) {
+      fetchData();
+    }
+  }, [USER_UUID]);
 
   // Manejar cambios en el formulario
   const handleGoalChange = (field, value, isEditing = false) => {
@@ -224,7 +218,7 @@ const HealthGoalsScreen = () => {
 
       // 1. Registrar nuevo peso en el backend
       const result = await userService.registrarPeso(USER_UUID, apiPesoData);
-      
+
       if (result.exito) {
         // 2. Actualizar estado local del usuario
         setCurrentUser(prev => ({
@@ -337,8 +331,8 @@ const HealthGoalsScreen = () => {
 
   // Editar objetivo
   const editGoal = (goal) => {
-    setEditingGoal({ 
-      ...goal, 
+    setEditingGoal({
+      ...goal,
       targetWeight: goal.targetWeight?.toString() || '',
       initialWeight: goal.initialWeight?.toString() || '',
       progress: goal.progress?.toString() || '0'
@@ -381,10 +375,10 @@ const HealthGoalsScreen = () => {
           unit={currentUser?.unidad_peso}
           userData={currentUser}
         />
-        
+
         <TouchableOpacity
           style={styles.historyButton}
-          onPress={loadWeightHistory}>
+          onPress={() => navigation.navigate('WeightHistory')}>
           <Icon name="history" size={20} color="#2a8c4a" />
           <Text style={styles.historyButtonText}>Historial</Text>
         </TouchableOpacity>
@@ -543,10 +537,12 @@ const styles = StyleSheet.create({
     padding: 15,
     marginHorizontal: 20,
     marginTop: 10,
+    marginBottom: 15,
     borderRadius: 8,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginHorizontal: 20,
   },
   currentWeightText: {
     fontSize: 16,
@@ -565,6 +561,7 @@ const styles = StyleSheet.create({
   listContainer: {
     flexGrow: 1,
     paddingBottom: 20,
+    paddingHorizontal: 20,
   },
   loadingContainer: {
     flex: 1,

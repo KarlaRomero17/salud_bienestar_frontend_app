@@ -1,4 +1,4 @@
-// components/UpdateWeightButton.js
+// components/peso/UpdateWeightButton.js
 import React, { useState } from 'react';
 import {
   View,
@@ -13,42 +13,27 @@ import {
   Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import userService from '../../services/userService'; 
 
-const UpdateWeightButton = ({ userId, onWeightUpdate, currentWeight, unit = 'kg' }) => {
+const UpdateWeightButton = ({ userId, onWeightUpdate, currentWeight, unit = 'kg', userData }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [peso, setPeso] = useState(currentWeight?.toString() || '');
-  const [altura, setAltura] = useState('');
-  const [edad, setEdad] = useState('');
-  const [genero, setGenero] = useState('');
+  const [altura, setAltura] = useState(userData?.altura?.toString() || '');
+  const [edad, setEdad] = useState(userData?.edad?.toString() || '');
+  const [genero, setGenero] = useState(userData?.genero || '');
   const [medidaCintura, setMedidaCintura] = useState('');
   const [loading, setLoading] = useState(false);
+
 
   const calcularGrasa = () => {
     if (!peso || !altura || !edad || !genero) return null;
 
     const pesoNum = parseFloat(peso);
-    const alturaNum = parseFloat(altura) / 100; // convertir cm a m
+    const alturaNum = parseFloat(altura);
     const edadNum = parseInt(edad);
     const cinturaNum = medidaCintura ? parseFloat(medidaCintura) : null;
 
-    // Fórmula simplificada de Deurenberg
-    let grasaCorporal;
-    if (genero === 'masculino') {
-      grasaCorporal = (1.20 * (pesoNum / (alturaNum * alturaNum))) + (0.23 * edadNum) - 16.2;
-    } else {
-      grasaCorporal = (1.20 * (pesoNum / (alturaNum * alturaNum))) + (0.23 * edadNum) - 5.4;
-    }
-
-    // Ajustar con medida de cintura si está disponible
-    if (cinturaNum) {
-      if (genero === 'masculino') {
-        grasaCorporal += (cinturaNum - 90) * 0.1;
-      } else {
-        grasaCorporal += (cinturaNum - 80) * 0.1;
-      }
-    }
-
-    return Math.max(5, Math.min(50, grasaCorporal)).toFixed(1);
+    return userService.calcularGrasaCorporal(pesoNum, alturaNum, edadNum, genero, cinturaNum);
   };
 
   const handleRegistrarPeso = async () => {
@@ -67,27 +52,21 @@ const UpdateWeightButton = ({ userId, onWeightUpdate, currentWeight, unit = 'kg'
       const grasaCorporal = calcularGrasa();
       
       const pesoData = {
-        peso_actual: parseFloat(peso),
+        peso: parseFloat(peso),
         grasa_corporal: parseFloat(grasaCorporal),
         altura: parseFloat(altura),
         edad: parseInt(edad),
         genero: genero,
         medida_cintura: medidaCintura ? parseFloat(medidaCintura) : null,
-        fecha: new Date().toISOString(),
         unidad: unit
       };
 
       await onWeightUpdate(pesoData);
       
-      // Limpiar formulario
-      setPeso('');
-      setMedidaCintura('');
       setModalVisible(false);
       
-      Alert.alert('¡Éxito!', `Peso registrado correctamente\nGrasa corporal: ${grasaCorporal}%`);
-      
     } catch (error) {
-      Alert.alert('Error', error.message);
+      // El error ya se maneja en el parent component
     } finally {
       setLoading(false);
     }
@@ -232,11 +211,9 @@ const UpdateWeightButton = ({ userId, onWeightUpdate, currentWeight, unit = 'kg'
                 ]}
                 onPress={handleRegistrarPeso}
                 disabled={loading || !peso || !altura || !edad || !genero}>
-                {loading ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Text style={styles.saveButtonText}>Registrar</Text>
-                )}
+                <Text style={styles.saveButtonText}>
+                  {loading ? 'Registrando...' : 'Registrar'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

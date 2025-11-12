@@ -1,5 +1,5 @@
 // components/WeightHistoryModal.js
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,45 @@ import {
   TouchableOpacity,
   Modal,
   FlatList,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import userService from '../../services/userService';
 
-const WeightHistoryModal = ({ visible, onClose, historial, unit = 'kg' }) => {
+const WeightHistoryModal = ({ 
+  visible, 
+  onClose, 
+  historial, 
+  unit = 'kg', 
+  userId,
+  onDeleteRecord 
+}) => {
+  const [loading, setLoading] = useState(false);
+  const [historialCompleto, setHistorialCompleto] = useState(historial || []);
+
+  useEffect(() => {
+    if (visible) {
+      loadHistorialCompleto();
+    }
+  }, [visible]);
+
+  const loadHistorialCompleto = async () => {
+    if (!userId) return;
+    
+    try {
+      setLoading(true);
+      const result = await userService.obtenerHistorialPeso(userId, { limite: 50 });
+      if (result.exito) {
+        setHistorialCompleto(result.datos || []);
+      }
+    } catch (error) {
+      console.error('Error loading history:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const formatFecha = (fechaString) => {
     const fecha = new Date(fechaString);
     return fecha.toLocaleDateString('es-ES', {
@@ -23,14 +58,39 @@ const WeightHistoryModal = ({ visible, onClose, historial, unit = 'kg' }) => {
   };
 
   const getTendencia = (index) => {
-    if (index === 0 || historial.length < 2) return 'neutral';
+    if (index === 0 || historialCompleto.length < 2) return 'neutral';
     
-    const pesoActual = historial[index].peso_actual;
-    const pesoAnterior = historial[index - 1].peso_actual;
+    const pesoActual = historialCompleto[index].peso;
+    const pesoAnterior = historialCompleto[index - 1].peso;
     
     if (pesoActual < pesoAnterior) return 'down';
     if (pesoActual > pesoAnterior) return 'up';
     return 'neutral';
+  };
+
+  const handleDeleteRecord = (registroId) => {
+    Alert.alert(
+      "Eliminar Registro",
+      "¿Estás seguro de que quieres eliminar este registro de peso?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await onDeleteRecord(registroId);
+              // Actualizar lista local
+              setHistorialCompleto(prev => 
+                prev.filter(registro => registro._id !== registroId)
+              );
+            } catch (error) {
+              Alert.alert('Error', error.message);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const renderItem = ({ item, index }) => {
@@ -41,11 +101,13 @@ const WeightHistoryModal = ({ visible, onClose, historial, unit = 'kg' }) => {
         <View style={styles.historyContent}>
           <View style={styles.weightInfo}>
             <Text style={styles.weightValue}>
-              {item.peso_actual} {unit}
+              {item.peso} {unit}
             </Text>
-            <Text style={styles.bodyFatText}>
-              {item.grasa_corporal}% grasa
-            </Text>
+            {item.grasa_corporal && (
+              <Text style={styles.bodyFatText}>
+                {item.grasa_corporal}% grasa
+              </Text>
+            )}
           </View>
           <View style={styles.dateInfo}>
             <Text style={styles.dateText}>
@@ -65,11 +127,21 @@ const WeightHistoryModal = ({ visible, onClose, historial, unit = 'kg' }) => {
             )}
           </View>
         </View>
-        {item.medida_cintura && (
-          <Text style={styles.extraInfo}>
-            Cintura: {item.medida_cintura}cm
-          </Text>
+        
+        {item.altura && item.edad && item.genero && (
+          <View style={styles.extraInfo}>
+            <Text style={styles.extraText}>
+              {item.altura}cm • {item.edad}años • {item.genero}
+              {item.medida_cintura && ` • Cintura: ${item.medida_cintura}cm`}
+            </Text>
+          </View>
         )}
+
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeleteRecord(item._id)}>
+          <Icon name="delete" size={16} color="#ff6b6b" />
+        </TouchableOpacity>
       </View>
     );
   };
@@ -91,13 +163,20 @@ const WeightHistoryModal = ({ visible, onClose, historial, unit = 'kg' }) => {
             </TouchableOpacity>
           </View>
 
-          {historial && historial.length > 0 ? (
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#2a8c4a" />
+              <Text style={styles.loadingText}>Cargando historial...</Text>
+            </View>
+          ) : historialCompleto.length > 0 ? (
             <FlatList
-              data={historial}
+              data={historialCompleto}
               renderItem={renderItem}
-              keyExtractor={(item, index) => index.toString()}
+              keyExtractor={(item, index) => item._id || index.toString()}
               style={styles.historyList}
               showsVerticalScrollIndicator={false}
+              refreshing={loading}
+              onRefresh={loadHistorialCompleto}
             />
           ) : (
             <View style={styles.emptyState}>
@@ -156,6 +235,15 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 4,
   },
+  loadingContainer: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
   historyList: {
     maxHeight: 400,
   },
@@ -163,11 +251,13 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+    position: 'relative',
   },
   historyContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginRight: 30, // Espacio para el botón de eliminar
   },
   weightInfo: {
     flex: 1,
@@ -206,10 +296,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#f44336',
   },
   extraInfo: {
+    marginTop: 8,
+  },
+  extraText: {
     fontSize: 12,
     color: '#888',
-    marginTop: 8,
     fontStyle: 'italic',
+  },
+  deleteButton: {
+    position: 'absolute',
+    right: 16,
+    top: 16,
+    padding: 4,
   },
   emptyState: {
     alignItems: 'center',

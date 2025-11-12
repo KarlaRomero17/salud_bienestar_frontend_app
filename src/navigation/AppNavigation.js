@@ -23,6 +23,7 @@ import MenuActividadScreen from '../screens/ActividadFisica/MenuActividadScreen'
 import NuevaSesionScreen from '../screens/ActividadFisica/NuevaSesionScreen';
 import AgregarActividadScreen from '../screens/ActividadFisica/AgregarActividadScreen';
 import EstadisticasScreen from '../screens/ActividadFisica/EstadisticasScreen';
+import WeightHistoryScreen from '../screens/Progress/WeightHistoryScreen';
 
 
 const Stack = createNativeStackNavigator();
@@ -32,23 +33,23 @@ const Tab = createBottomTabNavigator();
 function ActividadFisicaStack() {
   return (
     // headerShown: false aquí para que la cabecera sea manejada por las screens internas
-    <Stack.Navigator screenOptions={{ headerShown: false }}> 
-      <Stack.Screen 
-        name="MenuActividad" 
-        component={MenuActividadScreen} 
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen
+        name="MenuActividad"
+        component={MenuActividadScreen}
         options={{ headerShown: false }}
       />
-      <Stack.Screen 
-        name="NuevaSesion" 
+      <Stack.Screen
+        name="NuevaSesion"
         component={NuevaSesionScreen}
         options={{
-          headerShown: true, 
+          headerShown: true,
           title: 'Nueva Sesión',
           headerBackTitle: 'Atrás'
         }}
       />
-      <Stack.Screen 
-        name="AgregarActividad" 
+      <Stack.Screen
+        name="AgregarActividad"
         component={AgregarActividadScreen}
         options={{
           headerShown: true,
@@ -56,8 +57,8 @@ function ActividadFisicaStack() {
           headerBackTitle: 'Atrás'
         }}
       />
-      <Stack.Screen 
-        name="Estadisticas" 
+      <Stack.Screen
+        name="Estadisticas"
         component={EstadisticasScreen}
         options={{
           headerShown: true,
@@ -76,17 +77,17 @@ function MainTabs({ initialRouteName }) {
       screenOptions={{
         tabBarActiveTintColor: '#10b981',
         tabBarInactiveTintColor: '#64748b',
-        
+
         headerShown: false,
       }}
     >
-      <Tab.Screen name="Home" component={HomeScreen} 
+      <Tab.Screen name="Home" component={HomeScreen}
         options={{ tabBarLabel: 'Inicio', tabBarIcon: ({ color, size }) => (<MaterialIcons name="home" color={color} size={size} />), }}
       />
-      
+
       <Tab.Screen
-        name="ActividadFisica" 
-        component={ActividadFisicaStack} 
+        name="ActividadFisica"
+        component={ActividadFisicaStack}
         options={{
           tabBarLabel: 'Entrenamientos',
           tabBarIcon: ({ color, size }) => (
@@ -94,13 +95,13 @@ function MainTabs({ initialRouteName }) {
           ),
         }}
       />
-      <Tab.Screen name="Planes de Comida" component={PlanesDeComidaScreen} 
+      <Tab.Screen name="Planes de Comida" component={PlanesDeComidaScreen}
         options={{ tabBarLabel: 'Planes de Comida', tabBarIcon: ({ color, size }) => (<MaterialIcons name="restaurant-menu" color={color} size={size} />), }}
       />
-      <Tab.Screen name="Foros" component={ForumScreen} 
+      <Tab.Screen name="Foros" component={ForumScreen}
         options={{ tabBarLabel: 'Foros', tabBarIcon: ({ color, size }) => (<MaterialIcons name="forum" color={color} size={size} />), }}
       />
-      <Tab.Screen name="Configuracion" component={ConfiguracionesScreen} 
+      <Tab.Screen name="Configuracion" component={ConfiguracionesScreen}
         options={{ tabBarLabel: 'Configuración', tabBarIcon: ({ color, size }) => (<MaterialIcons name="settings" color={color} size={size} />), }}
       />
     </Tab.Navigator>
@@ -118,7 +119,7 @@ export default function AppNavigation() {
             <Stack.Screen name="MainTabs">
               {(props) => <MainTabs {...props} initialRouteName={isNewUser ? 'Configuracion' : 'Home'} />}
             </Stack.Screen>
-            
+
             <Stack.Screen
               name="HealthGoal"
               component={HealthGoalsScreen}
@@ -131,13 +132,18 @@ export default function AppNavigation() {
               options={{ headerShown: true, title: 'Recordatorios', headerBackTitle: 'Atrás' }}
             />
             <Stack.Screen name="Progress" component={ProgressScreen}
-              options={{ headerShown: true, title: 'Progreso', headerBackTitle: 'Atrás' }} 
+              options={{ headerShown: true, title: 'Progreso', headerBackTitle: 'Atrás' }}
             />
             <Stack.Screen name="NewPublication" component={NewPublicationScreen}
-              options={{ headerShown: true, title: 'Nueva Publicación', headerBackTitle: 'Atrás' }} 
+              options={{ headerShown: true, title: 'Nueva Publicación', headerBackTitle: 'Atrás' }}
             />
             <Stack.Screen name="PublicationDetails" component={PublicatonDetailsScreen}
-              options={{ headerShown: true, title: 'Detalles Publicación', headerBackTitle: 'Atrás' }} 
+              options={{ headerShown: true, title: 'Detalles Publicación', headerBackTitle: 'Atrás' }}
+            />
+            <Stack.Screen
+              name="WeightHistory"
+              component={WeightHistoryScreen}
+              options={{headerShown: true, title: 'Historial de Peso' }}
             />
           </>
         ) : (

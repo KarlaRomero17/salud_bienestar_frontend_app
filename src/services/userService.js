@@ -1,6 +1,5 @@
 // services/userService.js
 import axios from 'axios';
-
 import { SERVER_URI } from '@env';
 
 const API_BASE_URL = `${SERVER_URI}/api`;
