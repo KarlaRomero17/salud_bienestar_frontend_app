@@ -63,7 +63,7 @@ const HealthGoalsScreen = ({ navigation} ) => {
       setLoading(true);
       setUserLoading(true);
 
-       console.log('UUID del usuario:', USER_UUID);
+      // console.log('UUID del usuario:', USER_UUID);
 
       // Cargar objetivos
       const goalsResult = await objetivosService.obtenerTodos();
@@ -87,30 +87,30 @@ const HealthGoalsScreen = ({ navigation} ) => {
   // Cargar datos del usuario
   const loadUserData = async () => {
     try {
-       console.log('Intentando obtener perfil del usuario con UUID:', USER_UUID);
+      // console.log('Intentando obtener perfil del usuario con UUID:', USER_UUID);
 
       // Intentar obtener usuario existente
       const userResult = await userService.obtenerPerfil(USER_UUID);
-       console.log('Perfil obtenido:', userResult);
+      // console.log('Perfil obtenido:', userResult);
 
       if (userResult.exito) {
         setCurrentUser(userResult.datos);
 
-         console.log('Cargando historial de peso...');
+        // console.log('Cargando historial de peso...');
         // Cargar historial de peso
         const historialResult = await userService.obtenerHistorialPeso(USER_UUID);
-         console.log('Historial obtenido:', historialResult);
+        // console.log('Historial obtenido:', historialResult);
 
         if (historialResult.exito) {
           setWeightHistory(historialResult.datos || []);
-         console.log(`${historialResult.datos?.length || 0} registros cargados`);
+        // console.log(`${historialResult.datos?.length || 0} registros cargados`);
         } else {
           // console.error('Error en respuesta del historial:', historialResult.mensaje);
         }
       }
     } catch (error) {
-       console.error('Error completo en loadUserData:', error);
-       console.error('Mensaje de error:', error.message);
+      // console.error('Error completo en loadUserData:', error);
+      // console.error('Mensaje de error:', error.message);
 
       // Mostrar alerta solo si no es error 404 (usuario no existe)
       if (!error.message.includes('404') && !error.message.includes('no encontrado')) {
