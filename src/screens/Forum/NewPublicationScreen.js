@@ -1,6 +1,10 @@
-import { useState } from 'react';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import axios from 'axios';
+import { useContext, useEffect, useLayoutEffect, useState } from 'react';
 import {
+    Alert,
     KeyboardAvoidingView,
+    Platform,
     SafeAreaView,
     ScrollView,
     StyleSheet,
@@ -9,10 +13,70 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { AuthContext } from '../../context/AuthContext';
+
+const BASE_URL = Platform.OS == 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000'
 
 export default function NewPublicationScreen() {
-    const [titulo, setTitulo] = useState('');
-    const [content, setContent] = useState('')
+    const { user } = useContext(AuthContext);
+    const navigation = useNavigation();
+    const route = useRoute();
+    const publicacion = route.params?.publicacion;  //obtiene la publi si viene de editar
+
+    const [titulo, setTitulo] = useState(publicacion ? publicacion.titulo : "");
+    const [content, setContent] = useState(publicacion ? publicacion.contenido : "")
+    const [loading, setLoading] = useState(false);
+
+
+    useLayoutEffect(() => {
+        navigation.setOptions({
+            title: publicacion ? "Editar publicación" : "Nueva publicación",
+        });
+    }, [navigation, publicacion]);
+
+    useEffect(() => {
+        if (publicacion) {
+            setTitulo(publicacion.titulo);
+            setContent(publicacion.contenido);
+        }
+    }, [publicacion]);
+
+
+    const guardarPublicacion = async () => {
+        if (!titulo || !content) {
+            Alert.alert('Error', 'Por favor completa todos los campos');
+            return;
+        }
+        try {
+            setLoading(true);
+            if (publicacion) {
+                // Si existe, EDITAR
+                await axios.put(`${BASE_URL}/api/publicaciones/${publicacion._id}`, {
+                    titulo,
+                    contenido: content,
+                    autor: user?.nombre || ''
+                });
+                Alert.alert('Éxito', 'Publicación actualizada correctamente ✏️');
+            } else {
+                // Si no existe, CREAR
+                const nuevaPublicacion = {
+                    titulo,
+                    contenido: content,
+                    autor: user?.nombre || '',
+                };
+                await axios.post(`${BASE_URL}/api/publicaciones`, nuevaPublicacion);
+                Alert.alert('Éxito', 'Publicación creada correctamente 🎉');
+            }
+            navigation.goBack();
+        } catch (error) {
+            console.log('Error al guardar publicación:', error);
+            Alert.alert('Error', 'No se pudo guardar la publicación');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <KeyboardAvoidingView
@@ -21,6 +85,15 @@ export default function NewPublicationScreen() {
             >
                 <ScrollView contentContainerStyle={styles.scrollContent}>
                     <View style={styles.formContainer}>
+                        {/* Autor (solo mostrar) */}
+                        <View style={styles.inputContainer}>
+                            <Text style={styles.label}>Autor</Text>
+                            <TextInput
+                                style={[styles.input, { backgroundColor: '#e5e7eb' }]}
+                                value={user?.nombre || ''}
+                                editable={false}
+                            />
+                        </View>
 
                         {/* Titulo de la Publicación */}
                         <View style={styles.inputContainer}>
@@ -33,7 +106,7 @@ export default function NewPublicationScreen() {
                                 onChangeText={setTitulo}
                             />
                         </View>
-                        
+
                         {/* Contenido de la Publicación */}
                         <View style={styles.inputContainer}>
                             <Text style={styles.label}>Contenido de la publicación</Text>
@@ -44,14 +117,18 @@ export default function NewPublicationScreen() {
                                 value={content}
                                 onChangeText={setContent}
                                 multiline={true}       // permite varias líneas
-                                numberOfLines={20}      // define una altura inicial
+                                numberOfLines={10}      // define una altura inicial
                                 textAlignVertical="top" // alinea el texto al inicio
                             />
                         </View>
 
-                        <TouchableOpacity style={styles.postButton}>
+                        <TouchableOpacity
+                            style={[styles.postButton, loading && { opacity: 0.6 }]}
+                            onPress={guardarPublicacion}
+                            disabled={loading}
+                        >
                             <Text style={styles.postButtonText}>
-                                Publicar
+                                {loading ? 'Guardando...' : publicacion ? 'Actualizar' : 'Publicar'}
                             </Text>
                         </TouchableOpacity>
                     </View>
@@ -81,8 +158,8 @@ const styles = StyleSheet.create({
     },
 
     formContainer: {
-    paddingHorizontal: 32,
-    paddingBottom: 30,
+        paddingHorizontal: 32,
+        paddingBottom: 30,
     },
 
     inputContainer: {
@@ -139,24 +216,24 @@ const styles = StyleSheet.create({
 
     //Publicar
     postButton: {
-    backgroundColor: '#2a8c4a',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 24,
-    shadowColor: '#10b981',
-    shadowOffset: {
-      width: 0,
-      height: 4,
+        backgroundColor: '#2a8c4a',
+        borderRadius: 12,
+        paddingVertical: 16,
+        alignItems: 'center',
+        marginBottom: 24,
+        shadowColor: '#10b981',
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
 
-  postButtonText: {
-    color: '#ffffff',
-    fontSize: 17,
-    fontWeight: 'bold',
-  },
+    postButtonText: {
+        color: '#ffffff',
+        fontSize: 17,
+        fontWeight: 'bold',
+    },
 })
