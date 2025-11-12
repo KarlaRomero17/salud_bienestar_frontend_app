@@ -21,7 +21,7 @@ import WeightHistoryModal from '../../components/peso/WeightHistoryModal';
 import DatePickerModal from '../../components/objetivos/DatePickerModal';
 import { AuthContext } from '../../context/AuthContext';
 
-const HealthGoalsScreen = ({ navigation} ) => {
+const HealthGoalsScreen = ({ navigation }) => {
   const { user } = useContext(AuthContext);
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,6 +30,7 @@ const HealthGoalsScreen = ({ navigation} ) => {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [dateModalVisible, setDateModalVisible] = useState(false);
   const [weightHistoryVisible, setWeightHistoryVisible] = useState(false);
+  const [calculandoProgreso, setCalculandoProgreso] = useState(false);
 
   const [newGoal, setNewGoal] = useState({
     title: '',
@@ -63,19 +64,22 @@ const HealthGoalsScreen = ({ navigation} ) => {
       setLoading(true);
       setUserLoading(true);
 
-      // console.log('UUID del usuario:', USER_UUID);
+      console.log('UUID del usuario:', USER_UUID);
 
-      // Cargar objetivos
-      const goalsResult = await objetivosService.obtenerTodos();
+      // Cargar objetivos DEL USUARIO ACTUAL
+      const goalsResult = await objetivosService.obtenerTodos(USER_UUID);
       if (goalsResult.exito) {
         setGoals(goalsResult.datos);
+        console.log('Objetivos cargados:', goalsResult.datos.length);
+      } else {
+        console.log('No se pudieron cargar objetivos:', goalsResult.mensaje);
       }
 
       // Cargar datos del usuario
       await loadUserData();
 
     } catch (error) {
-      // console.error('Error fetching data:', error);
+      console.error('Error fetching data:', error);
       Alert.alert('Error', error.message || 'Error al cargar los datos');
     } finally {
       setLoading(false);
@@ -87,35 +91,45 @@ const HealthGoalsScreen = ({ navigation} ) => {
   // Cargar datos del usuario
   const loadUserData = async () => {
     try {
-      // console.log('Intentando obtener perfil del usuario con UUID:', USER_UUID);
+      console.log('Intentando obtener perfil del usuario con UUID:', USER_UUID);
 
-      // Intentar obtener usuario existente
       const userResult = await userService.obtenerPerfil(USER_UUID);
-      // console.log('Perfil obtenido:', userResult);
+      console.log('Perfil obtenido:', userResult);
 
       if (userResult.exito) {
         setCurrentUser(userResult.datos);
+        console.log('Peso actual del usuario:', userResult.datos.peso_actual);
 
-        // console.log('Cargando historial de peso...');
         // Cargar historial de peso
-        const historialResult = await userService.obtenerHistorialPeso(USER_UUID);
-        // console.log('Historial obtenido:', historialResult);
-
-        if (historialResult.exito) {
-          setWeightHistory(historialResult.datos || []);
-        // console.log(`${historialResult.datos?.length || 0} registros cargados`);
-        } else {
-          // console.error('Error en respuesta del historial:', historialResult.mensaje);
-        }
+        await loadWeightHistoryData();
       }
     } catch (error) {
-      // console.error('Error completo en loadUserData:', error);
-      // console.error('Mensaje de error:', error.message);
-
-      // Mostrar alerta solo si no es error 404 (usuario no existe)
+      console.error('Error en loadUserData:', error);
       if (!error.message.includes('404') && !error.message.includes('no encontrado')) {
         Alert.alert('Error', `No se pudieron cargar los datos: ${error.message}`);
       }
+    }
+  };
+
+  const loadWeightHistoryData = async () => {
+    try {
+      console.log('Cargando historial de peso...');
+      const historialResult = await userService.obtenerHistorialPeso(USER_UUID);
+      console.log('Historial obtenido:', historialResult);
+
+      if (historialResult.exito) {
+        setWeightHistory(historialResult.datos || []);
+        console.log(`${historialResult.datos?.length || 0} registros cargados`);
+
+        // ELIMINA ESTA PARTE que causa el bucle
+        // if (historialResult.datos?.length > 0 && goals.length > 0) {
+        //   const pesoMasReciente = historialResult.datos[0].peso;
+        //   console.log('Recalculando progresos con peso más reciente:', pesoMasReciente);
+        //   await recalculateAllGoalsProgress(pesoMasReciente);
+        // }
+      }
+    } catch (error) {
+      console.error('Error cargando historial:', error);
     }
   };
 
@@ -205,6 +219,9 @@ const HealthGoalsScreen = ({ navigation} ) => {
   // Actualizar peso y recalcular progresos
   const handleWeightUpdate = async (pesoData) => {
     try {
+      console.log('🔄 Iniciando actualización de peso...', pesoData);
+      setCalculandoProgreso(true);
+
       // Preparar datos para la API
       const apiPesoData = {
         peso_actual: pesoData.peso,
@@ -216,8 +233,11 @@ const HealthGoalsScreen = ({ navigation} ) => {
         unidad: pesoData.unidad
       };
 
+      console.log('Datos a enviar al backend:', apiPesoData);
+
       // 1. Registrar nuevo peso en el backend
       const result = await userService.registrarPeso(USER_UUID, apiPesoData);
+      console.log('Respuesta del backend:', result);
 
       if (result.exito) {
         // 2. Actualizar estado local del usuario
@@ -230,56 +250,198 @@ const HealthGoalsScreen = ({ navigation} ) => {
           unidad_peso: pesoData.unidad
         }));
 
-        // 3. Recalcular progreso de todos los objetivos
-        await recalculateAllGoalsProgress(pesoData.peso);
-
-        // 4. Actualizar historial local
+        // 3. Actualizar historial local
         const nuevoRegistro = {
           ...pesoData,
           fecha: new Date().toISOString()
         };
         setWeightHistory(prev => [nuevoRegistro, ...prev]);
 
-        // 5. Recargar datos para asegurar consistencia
-        fetchData();
+        // 4. Recalcular progreso de todos los objetivos Y marcar como completados
+        console.log('🎯 Recalculando progresos con nuevo peso:', pesoData.peso);
+        await recalculateAllGoalsProgress(pesoData.peso);
+
+        // 5. Mostrar feedback al usuario
+        Alert.alert(
+          '¡Éxito!',
+          `Peso actualizado a ${pesoData.peso}${pesoData.unidad}\nProgreso de objetivos recalculado automáticamente`,
+          [{ text: 'OK' }]
+        );
 
         return result;
       }
 
     } catch (error) {
-      Alert.alert('Error', error.message);
+      console.error('❌ Error en handleWeightUpdate:', error);
+      Alert.alert('Error', error.message || 'Error al actualizar el peso');
       throw error;
+    } finally {
+      setCalculandoProgreso(false);
     }
   };
 
-  // Recalcular progreso de todos los objetivos
+  // Recalcular progreso de todos los objetivos y marcar como completados
+  // Recalcular progreso de todos los objetivos y marcar como completados - MEJORADA
   const recalculateAllGoalsProgress = async (currentWeight) => {
     try {
-      for (const goal of goals) {
+      console.log('📊 Recalculando progresos para', goals.length, 'objetivos');
+      console.log('Peso actual para cálculo:', currentWeight);
+
+      let objetivosActualizados = 0;
+      let objetivosCompletados = 0;
+      let needsRefresh = false;
+
+      // Crear una copia de los objetivos actuales para comparar
+      const objetivosActuales = [...goals];
+
+      for (const goal of objetivosActuales) {
         if (!goal.completed) {
-          const progress = calculateProgress(goal, currentWeight);
-          await objetivosService.actualizarProgreso(goal._id, progress);
+          const nuevoProgreso = calculateProgress(goal, currentWeight);
+          const completado = isGoalCompleted(goal, currentWeight);
+
+          console.log(`🎯 "${goal.title}": Progreso actual ${goal.progress}% → Nuevo ${nuevoProgreso}%, Completado: ${completado}`);
+
+          // Si está completado y antes no lo estaba
+          if (completado && nuevoProgreso >= 100) {
+            console.log(`🎉 Marcando "${goal.title}" como COMPLETADO!`);
+            await objetivosService.marcarCompletado(goal._id);
+            objetivosCompletados++;
+            needsRefresh = true;
+          }
+          // Si hay un cambio significativo en el progreso (más de 1% de diferencia)
+          else if (Math.abs(goal.progress - nuevoProgreso) >= 1) {
+            console.log(`📈 Actualizando progreso de "${goal.title}": ${goal.progress}% → ${nuevoProgreso}%`);
+            await objetivosService.actualizarProgreso(goal._id, nuevoProgreso);
+            objetivosActualizados++;
+            needsRefresh = true;
+          }
         }
       }
+
+      console.log(`✅ Progresos recalculados: ${objetivosActualizados} actualizados, ${objetivosCompletados} completados`);
+
+      // Recargar los objetivos para reflejar los cambios SOLO si hubo cambios
+      if (needsRefresh) {
+        console.log('🔄 Recargando lista de objetivos...');
+        await refreshGoalsOnly();
+      } else {
+        console.log('ℹ️ No hay cambios significativos en los progresos');
+      }
+
     } catch (error) {
-      console.error('Error recalculating progress:', error);
+      console.error('❌ Error recalculating progress:', error);
+      Alert.alert('Error', 'Hubo un problema al recalcular los progresos');
+    }
+  };
+
+  // Función para recargar solo objetivos sin causar bucle
+  const refreshGoalsOnly = async () => {
+    try {
+      console.log('🔄 Recargando solo objetivos...');
+      const goalsResult = await objetivosService.obtenerTodos(USER_UUID);
+      if (goalsResult.exito) {
+        setGoals(goalsResult.datos);
+        console.log('✅ Objetivos recargados:', goalsResult.datos.length);
+      }
+    } catch (error) {
+      console.error('Error recargando objetivos:', error);
     }
   };
 
   // Calcular progreso basado en peso actual
-  const calculateProgress = (goal, currentWeight) => {
+const calculateProgress = (goal, currentWeight) => {
+  const target = goal.targetWeight;
+  // Usar el initialWeight del objetivo O el peso actual si no hay initialWeight
+  const initial = goal.initialWeight || currentWeight;
+  console.log(user?.peso_actual);
+
+  console.log('🔍 Datos del cálculo:', {
+    title: goal.title,
+    initial: initial,
+    current: currentWeight,
+    target: target,
+    type: goal.type
+  });
+
+  // Si no hay datos suficientes, retornar 0
+  if (!initial || !currentWeight || !target) {
+    console.log(`⚠️ Datos insuficientes: initial=${initial}, current=${currentWeight}, target=${target}`);
+    return 0;
+  }
+
+  let progress = 0;
+
+  if (goal.type === 'loss') {
+    // Pérdida de peso: progreso = (peso perdido / peso a perder) * 100
+    const totalToLose = initial - target;
+    
+    console.log(`📉 "${goal.title}": Total a perder = ${initial} - ${target} = ${totalToLose}kg`);
+
+    // Si el objetivo ya está cumplido
+    if (currentWeight <= target) {
+      progress = 100;
+      console.log(`✅ "${goal.title}": Ya alcanzó el objetivo!`);
+    }
+    // Si no hay nada que perder (meta inválida)
+    else if (totalToLose <= 0) {
+      progress = 100;
+      console.log(`⚠️ "${goal.title}": Meta inválida (ya está en o por debajo del objetivo)`);
+    }
+    else {
+      const currentLoss = initial - currentWeight;
+      progress = (currentLoss / totalToLose) * 100;
+      console.log(`📉 "${goal.title}": Pérdida actual = ${initial} - ${currentWeight} = ${currentLoss}kg, Progreso = ${progress.toFixed(1)}%`);
+    }
+
+  } else {
+    // Ganancia de masa: progreso = (peso ganado / peso a ganar) * 100
+    const totalToGain = target - initial;
+    
+    console.log(`📈 "${goal.title}": Total a ganar = ${target} - ${initial} = ${totalToGain}kg`);
+
+    // Si el objetivo ya está cumplido
+    if (currentWeight >= target) {
+      progress = 100;
+      console.log(`✅ "${goal.title}": Ya alcanzó el objetivo!`);
+    }
+    // Si no hay nada que ganar (meta inválida)
+    else if (totalToGain <= 0) {
+      progress = 100;
+      console.log(`⚠️ "${goal.title}": Meta inválida (ya está en o por encima del objetivo)`);
+    }
+    else {
+      const currentGain = currentWeight - initial;
+      progress = (currentGain / totalToGain) * 100;
+      console.log(`📈 "${goal.title}": Ganancia actual = ${currentWeight} - ${initial} = ${currentGain}kg, Progreso = ${progress.toFixed(1)}%`);
+    }
+  }
+
+  const progresoFinal = Math.min(Math.max(progress, 0), 100);
+  console.log(`🎯 "${goal.title}": Progreso final = ${progresoFinal.toFixed(1)}%`);
+  
+  return progresoFinal;
+};
+
+  // Verificar si el objetivo está completado
+  const isGoalCompleted = (goal, currentWeight) => {
     const target = goal.targetWeight;
     const initial = goal.initialWeight || currentWeight;
 
+    if (!initial || !currentWeight) return false;
+
+    let completed = false;
+
     if (goal.type === 'loss') {
-      const totalToLose = initial - target;
-      const currentLoss = initial - currentWeight;
-      return Math.min(Math.max((currentLoss / totalToLose) * 100, 0), 100);
+      // Para pérdida: completado cuando peso actual <= peso objetivo
+      completed = currentWeight <= target;
     } else {
-      const totalToGain = target - initial;
-      const currentGain = currentWeight - initial;
-      return Math.min(Math.max((currentGain / totalToGain) * 100, 0), 100);
+      // Para ganancia: completado cuando peso actual >= peso objetivo
+      completed = currentWeight >= target;
     }
+
+    console.log(`🎯 "${goal.title}" - Completado: ${completed} (${currentWeight} ${goal.unit} vs ${target} ${goal.unit})`);
+
+    return completed;
   };
 
   // Marcar como completado
@@ -385,16 +547,28 @@ const HealthGoalsScreen = ({ navigation} ) => {
       </View>
 
       {/* Información del usuario actual */}
-      {currentUser?.peso_actual && (
-        <View style={styles.currentWeightInfo}>
-          <Text style={styles.currentWeightText}>
-            Peso actual: <Text style={styles.weightValue}>{currentUser.peso_actual} {currentUser.unidad_peso}</Text>
+      <View style={styles.currentWeightInfo}>
+        <Text style={styles.currentWeightText}>
+          Peso actual: <Text style={styles.weightValue}>
+            {currentUser?.peso_actual || 'No registrado'} {currentUser?.unidad_peso || 'kg'}
           </Text>
-          {weightHistory[0]?.grasa_corporal && (
-            <Text style={styles.currentFatText}>
-              Grasa: {weightHistory[0].grasa_corporal}%
-            </Text>
-          )}
+        </Text>
+        {weightHistory[0]?.grasa_corporal && (
+          <Text style={styles.currentFatText}>
+            Grasa: {weightHistory[0].grasa_corporal}%
+          </Text>
+        )}
+      </View>
+
+      {/* Resumen de objetivos */}
+      {goals.length > 0 && (
+        <View style={styles.goalsSummary}>
+          <Text style={styles.summaryText}>
+            {goals.filter(g => g.completed).length} de {goals.length} objetivos completados
+          </Text>
+          <Text style={styles.summarySubtext}>
+            Actualiza tu peso para recalcular progresos automáticamente
+          </Text>
         </View>
       )}
 
@@ -486,6 +660,12 @@ const HealthGoalsScreen = ({ navigation} ) => {
           }
         }}
       />
+      {calculandoProgreso && (
+        <View style={styles.calculatingOverlay}>
+          <ActivityIndicator size="large" color="#2a8c4a" />
+          <Text style={styles.calculatingText}>Recalculando progresos...</Text>
+        </View>
+      )}
 
       <DatePickerModal
         visible={dateModalVisible}
@@ -602,6 +782,26 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     marginTop: 5,
+  },
+  goalsSummary: {
+    backgroundColor: '#f0f8ff',
+    padding: 12,
+    marginHorizontal: 20,
+    marginBottom: 15,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2a8c4a',
+  },
+  summaryText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2a8c4a',
+    marginBottom: 4,
+  },
+  summarySubtext: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
   },
 });
 

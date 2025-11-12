@@ -3,6 +3,7 @@ import axios from 'axios';
 import { SERVER_URI } from '@env';
 
 const API_BASE_URL = `${SERVER_URI}/api`;
+console.log('ObjetivosService | Conectando a:', API_BASE_URL);
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -22,12 +23,18 @@ api.interceptors.response.use(
 
 export const objetivosService = {
   // Obtener todos los objetivos
-  obtenerTodos: async (params = {}) => {
+    obtenerTodos: async (userId = null) => {
     try {
+      const params = userId ? { userId } : {};
+      console.log('🔍 Buscando objetivos con params:', params);
+      console.log('🌐 URL completa:', `${API_BASE_URL}/health-goals`);
+      
       const response = await api.get('/health-goals', { params });
+      console.log('✅ Objetivos obtenidos exitosamente');
       return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.mensaje || 'Error al obtener los objetivos');
+      console.error('❌ Error en obtenerTodos:');
+      throw new Error(error.response?.data?.mensaje || 'Error al obtener objetivos');
     }
   },
 
@@ -72,9 +79,9 @@ export const objetivosService = {
   },
 
   // Marcar como completado
-  marcarCompletado: async (id) => {
+  marcarCompletado: async (goalId) => {
     try {
-      const response = await api.patch(`/health-goals/${id}/completar`);
+      const response = await api.put(`/health-goals/${goalId}/completar`);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.mensaje || 'Error al marcar como completado');
@@ -82,16 +89,15 @@ export const objetivosService = {
   },
 
   // Actualizar progreso
-  actualizarProgreso: async (id, progreso) => {
+  actualizarProgreso: async (goalId, progress) => {
     try {
-      const response = await api.patch(`/health-goals/${id}/progreso`, {
-        progress: progreso
-      });
+      const response = await api.put(`/health-goals/${goalId}/progreso`, { progress });
       return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.mensaje || 'Error al actualizar el progreso');
+      throw new Error(error.response?.data?.mensaje || 'Error al actualizar progreso');
     }
   },
+
 
   // Obtener objetivos próximos a vencer
   obtenerProximosVencer: async (dias = 7) => {
