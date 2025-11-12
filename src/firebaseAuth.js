@@ -169,6 +169,25 @@ const firebaseAuth = {
     }
   },
 
+  // Helper: convierte códigos de error de Firebase en mensajes amigables
+  _mapAuthErrorToMessage(error) {
+    const code = error && error.code ? error.code : null;
+    switch (code) {
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential':
+      case 'auth/user-not-found':
+        return 'Las credenciales son incorrectas. Verifica tu correo y contraseña.';
+      case 'auth/invalid-email':
+        return 'El formato del correo es inválido.';
+      case 'auth/user-disabled':
+        return 'La cuenta ha sido desactivada. Contacta al administrador.';
+      case 'auth/too-many-requests':
+        return 'Demasiados intentos. Intenta más tarde.';
+      default:
+        return 'Error al iniciar sesión. Intenta de nuevo más tarde.';
+    }
+  },
+
   async signInWithEmail(email, password) {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -176,8 +195,11 @@ const firebaseAuth = {
       const token = await user.getIdToken();
       return { success: true, user, token };
     } catch (error) {
-      console.error('signInWithEmail error', error);
-      return { success: false, error };
+      // Mapear a un mensaje más amigable y evitar imprimir el error crudo en producción
+      const friendly = firebaseAuth._mapAuthErrorToMessage(error);
+      // Loguear de forma segura (código plus mensaje legible)
+      console.warn('signInWithEmail failed:', error && error.code ? error.code : error.message || error, '-', friendly);
+      return { success: false, error: { code: error && error.code ? error.code : null, message: friendly } };
     }
   },
 
