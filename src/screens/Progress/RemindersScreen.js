@@ -79,7 +79,7 @@ const RemindersScreen = () => {
         setTodayReminders(recordatoriosHoy);
       }
     } catch (error) {
-      console.error('Error cargando recordatorios:', error);
+      console.error('Error cargando recordatorios 2:', error);
       Alert.alert('Error', 'No se pudieron cargar los recordatorios 2 ');
     } finally {
       setLoading(false);
