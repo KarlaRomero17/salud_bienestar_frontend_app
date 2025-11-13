@@ -121,17 +121,17 @@ export default function ConfiguracionesScreen() {
             <MaterialIcons name="chevron-right" size={24} color="#64748b" />
           </TouchableOpacity> */}
 
-          <TouchableOpacity style={styles.optionButton}>
+          {/* <TouchableOpacity style={styles.optionButton}>
             <MaterialIcons name="lock" size={24} color="#10b981" />
             <Text style={styles.optionText}>Privacidad</Text>
             <MaterialIcons name="chevron-right" size={24} color="#64748b" />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
-          <TouchableOpacity style={styles.optionButton}>
+          {/* <TouchableOpacity style={styles.optionButton}>
             <MaterialIcons name="help" size={24} color="#10b981" />
             <Text style={styles.optionText}>Ayuda y Soporte</Text>
             <MaterialIcons name="chevron-right" size={24} color="#64748b" />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
         {/* Botón de Cerrar Sesión */}
