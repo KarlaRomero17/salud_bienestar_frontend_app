@@ -38,7 +38,6 @@ const RemindersScreen = () => {
     activo: true,
     userId: user?.uid || '', // Usar el UID del usuario en sesión
   });
-  console.log(user?.uid);
 
   const daysOfWeek = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
@@ -61,7 +60,7 @@ const RemindersScreen = () => {
           reminder => reminder.userId === user.uid
         );
         setReminders(recordatoriosDelUsuario);
-        console.log(`📋 Cargados ${recordatoriosDelUsuario.length} recordatorios del usuario ${user.uid}`);
+        // console.log(`Cargados ${recordatoriosDelUsuario.length} recordatorios del usuario ${user.uid}`);
       }
 
       // 🔒 SEGURIDAD: Pasar userId para recordatorios de hoy

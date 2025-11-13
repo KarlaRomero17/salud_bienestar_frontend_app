@@ -35,13 +35,13 @@ const HomeScreen = ({ navigation }) => {
     // Verificar la estructura de respuesta
     if (response.exito) {
       setTodayReminders(response.datos || []);
-      console.log(`🎯 Recordatorios cargados: ${response.datos?.length || 0}`);
+      // console.log(`Recordatorios cargados: ${response.datos?.length || 0}`);
     } else {
-      console.log('Servicio respondió con error:', response.error);
+      // console.log('Servicio respondió con error:', response.error);
       setTodayReminders([]);
     }
   } catch (error) {
-    console.error('Error cargando recordatorios:', error);
+    // console.error('Error cargando recordatorios:', error);
     setTodayReminders([]);
   } finally {
     setLoading(false);

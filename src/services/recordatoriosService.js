@@ -7,7 +7,7 @@ const fetchWithTimeout = async (url, options = {}, timeout = 10000) => {
   const id = setTimeout(() => controller.abort(), timeout);
   
   try {
-    // 🔒 SEGURIDAD: Obtener el token de Firebase antes de cada petición
+    // SEGURIDAD: Obtener el token de Firebase antes de cada petición
     const token = await tokenManager.getToken();
     
     // Agregar el token al header Authorization si existe
@@ -41,7 +41,7 @@ export const recordatoriosService = {
       }
 
       const url = `${SERVER_URI}/api/recordatorios/usuario/${userId}`;
-      console.log('📋 Recordatorios | Conectando a:', url);
+      // console.log('Recordatorios | Conectando a:', url);
       
       const response = await fetchWithTimeout(url);
       
@@ -50,11 +50,11 @@ export const recordatoriosService = {
       }
       
       const data = await response.json();
-      console.log(`✅ Datos recibidos: ${data.length || 0} recordatorios del usuario`);
+      // console.log(`Datos recibidos: ${data.length || 0} recordatorios del usuario`);
       return data;
       
     } catch (error) {
-      console.error('❌ Error en obtenerTodos:', error.message);
+      // console.error('Error en obtenerTodos:', error.message);
       throw error;
     }
   },
@@ -67,7 +67,7 @@ export const recordatoriosService = {
     }
 
     const url = `${SERVER_URI}/api/recordatorios/usuario/${userId}`;
-    console.log('📋 Recordatorios de hoy | Conectando a:', url);
+    // console.log('Recordatorios de hoy | Conectando a:', url);
     
     const response = await fetchWithTimeout(url);
     
@@ -76,7 +76,7 @@ export const recordatoriosService = {
     }
     
     const result = await response.json();
-    console.log('📦 Resultado completo:', result);
+    // console.log('Resultado completo:', result);
     
     // El backend ya devuelve {exito, datos}
     if (result.exito && Array.isArray(result.datos)) {
@@ -85,7 +85,7 @@ export const recordatoriosService = {
         return recordatorio && recordatorio.active === true;
       });
       
-      console.log(`✅ Recordatorios de hoy: ${deHoy.length}`);
+      // console.log(`Recordatorios de hoy: ${deHoy.length}`);
       return { exito: true, datos: deHoy };
     } else {
       return { exito: false, error: 'Respuesta inválida del servidor', datos: [] };

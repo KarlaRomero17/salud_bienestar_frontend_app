@@ -35,7 +35,7 @@ secureApiClient.interceptors.request.use(
       if (token) {
         // Agregar token al header Authorization
         config.headers.Authorization = `Bearer ${token}`;
-        console.log('🔐 Token agregado a la petición:', config.url);
+        // console.log('🔐 Token agregado a la petición:', config.url);
       } else {
         console.warn('⚠️ No hay token disponible. Usuario no autenticado.');
       }

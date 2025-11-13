@@ -55,7 +55,7 @@ export const userService = {
   // Registrar nuevo peso
   registrarPeso: async (userId, pesoData) => {
     try {
-      console.log('Registrando peso para usuario:', userId, 'Datos:', pesoData);
+      // console.log('Registrando peso para usuario:', userId, 'Datos:', pesoData);
       const response = await api.post(`/users/${userId}/peso`, pesoData);
       return response.data;
     } catch (error) {

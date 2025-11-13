@@ -62,7 +62,7 @@ const ProgressScreen = () => {
   const fetchData = async (anio = null, mes = null) => {
     try {
       setLoading(true);
-      console.log('Cargando datos con filtros:', { anio, mes });
+      // console.log('Cargando datos con filtros:', { anio, mes });
       
       const filtros = {};
       if (anio && anio !== 'todos') filtros.anio = anio;
@@ -90,7 +90,7 @@ const ProgressScreen = () => {
           filtros: datos.filtros
         };
 
-        console.log('Nuevos stats:', nuevosStats);
+        // console.log('Nuevos stats:', nuevosStats);
         setStats(nuevosStats);
 
         // Actualizar goals desde los objetivos
@@ -138,7 +138,7 @@ const ProgressScreen = () => {
 
   // Manejar cambio de año
   const handleYearChange = (year) => {
-    console.log('🎯 Cambiando año a:', year);
+    // console.log('🎯 Cambiando año a:', year);
     setSelectedYear(year);
     setSelectedMonth(null); // Resetear mes cuando cambia el año
     if (year === 'todos') {
@@ -150,14 +150,14 @@ const ProgressScreen = () => {
 
   // Manejar cambio de mes
   const handleMonthChange = (month) => {
-    console.log('🎯 Cambiando mes a:', month);
+    // console.log('🎯 Cambiando mes a:', month);
     setSelectedMonth(month);
     fetchData(selectedYear, month);
   };
 
   // Cargar todos los datos (sin filtros)
   const loadAllData = () => {
-    console.log('🎯 Cargando todos los datos');
+    // console.log('🎯 Cargando todos los datos');
     setSelectedYear('todos');
     setSelectedMonth(null);
     fetchData(null, null);
@@ -166,7 +166,7 @@ const ProgressScreen = () => {
   useEffect(() => {
     if (USER_UUID) {
       // Cargar datos del año actual por defecto
-      console.log('🚀 Inicializando con usuario:', USER_UUID);
+      // console.log('🚀 Inicializando con usuario:', USER_UUID);
       fetchData(new Date().getFullYear().toString(), null);
     }
   }, [USER_UUID]);

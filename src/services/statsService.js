@@ -26,7 +26,7 @@ export const statsService = {
                 params.append('mes', filtros.mes);
             }
 
-            console.log('📡 Llamando a la API:', `/stats/${USER_UUID}?${params.toString()}`);
+            // console.log('📡 Llamando a la API:', `/stats/${USER_UUID}?${params.toString()}`);
             
             const response = await api.get(`/stats/${USER_UUID}?${params.toString()}`);
             return response.data;
