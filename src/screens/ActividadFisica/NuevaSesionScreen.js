@@ -5,11 +5,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext'; 
 import secureApiClient from '../../api/secureApiClient';
 
-// ✅ Usar cliente seguro con token automático
+
 const API_URL_SESION = '/actividad/sesion';
 const API_URL_SESION_HOY = '/actividad/sesion/hoy';
 
-// 🎨 PALETA DE COLORES
+
 const COLORS = {
     primary: '#2a8c4a', secondary: '#64c27b', light: '#9bfab0', 
     lighter: '#d0fdd7', white: '#ffffff', text: '#333333', error: '#e74c3c', 
@@ -90,7 +90,7 @@ export default function NuevaSesionScreen({ navigation, route }) {
                 fecha: new Date().toISOString().split('T')[0], // YYYY-MM-DD
             };
             
-            // Llama a POST /api/actividad/sesion
+         
             const response = await secureApiClient.post(API_URL_SESION, nuevaSesion);
             
             if (response.data && response.data.sesionId) {
@@ -145,7 +145,7 @@ export default function NuevaSesionScreen({ navigation, route }) {
         );
     };
 
-    // CORRECCIÓN para Limpiar el estado al guardar la sesión
+    
     const handleGuardarSesion = () => {
         Alert.alert(
             "Sesión Finalizada",
@@ -154,7 +154,7 @@ export default function NuevaSesionScreen({ navigation, route }) {
                 {
                     text: "Aceptar",
                     onPress: () => {
-                        // Limpiar el estado y forzar la vista de "Crear Nueva Sesión"
+                 
                         setSesionId(null);
                         setActividades([]);
                         setResumenSesion(calcularResumen([]));
@@ -171,12 +171,10 @@ export default function NuevaSesionScreen({ navigation, route }) {
     
     useFocusEffect(
         useCallback(() => {
-            // 🚨 CORRECCIÓN CLAVE: Simplemente recarga la sesión de la DB al enfocarse la pantalla
-            // Esto asegura que si una actividad fue añadida/eliminada en otra pantalla, se vea reflejado.
+
             fetchSesionHoy();
             
-            // Se elimina la lógica que usaba route.params?.nuevaActividad
-            // Ya no es necesaria, ya que fetchSesionHoy es la fuente de verdad.
+
             
             return () => {};
         }, [fetchSesionHoy]) 
@@ -216,7 +214,6 @@ export default function NuevaSesionScreen({ navigation, route }) {
         );
     };
 
-    // --- Renderizado de la Pantalla (sin cambios estructurales) ---
     
     if (isLoading) {
         return (
@@ -227,7 +224,7 @@ export default function NuevaSesionScreen({ navigation, route }) {
         );
     }
     
-    // VISTA DE CREACIÓN DE SESIÓN (cuando no hay sesionId)
+    // VISTA DE CREACIÓN DE SESIÓN (cuando no hay sesion)
     if (!sesionId) {
         return (
             <View style={styles.centered}>
@@ -244,7 +241,7 @@ export default function NuevaSesionScreen({ navigation, route }) {
         );
     }
 
-    // VISTA DE EDICIÓN Y DETALLES DE SESIÓN (cuando sí hay sesionId)
+    // VISTA DE EDICIÓN Y DETALLES DE SESIÓN (cuando sí hay sesion)
     return (
         <View style={styles.container}>
             <ScrollView contentContainerStyle={styles.contentContainer} style={{flex: 1}}>
@@ -299,7 +296,6 @@ export default function NuevaSesionScreen({ navigation, route }) {
     );
 }
 
-// --- Estilos (omitted for brevity) ---
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.white },
     contentContainer: { paddingBottom: 100 },
@@ -377,7 +373,7 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     
-    // Botones Flotantes / Fijos
+    
     footerButtons: {
         flexDirection: 'row',
         justifyContent: 'space-between',

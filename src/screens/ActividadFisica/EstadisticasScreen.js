@@ -12,7 +12,7 @@ import secureApiClient from '../../api/secureApiClient';
 
 const screenWidth = Dimensions.get('window').width;
 
-// ✅ Usar cliente seguro con token automático
+
 const API_URL_ESTADISTICAS = '/actividad/estadisticas'; 
 
 const COLORS = {
@@ -232,7 +232,7 @@ const EstadisticasScreen = () => {
         );
     };
 
-    // CORRECCIÓN ADICIONAL AQUÍ (Refuerzo)
+   
     const sesionesRecientesSeguras = estadisticas.sesionesRecientes || [];
 
     return (
