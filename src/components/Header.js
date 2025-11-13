@@ -1,29 +1,27 @@
 // components/Header.js
-import React from 'react';
 import {
-  View,
-  Text,
   StyleSheet,
+  Text,
   TouchableOpacity,
-  Animated
+  View
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
-const Header = ({ 
-  title, 
+const Header = ({
+  title,
   showBackButton = false,
   onBackPress,
   rightComponent,
   style,
   titleStyle,
-  userName = "Amigo",
+  userName = name,
   currentWeight = 75.5,
   targetWeight = 70.0,
   weightUnit = "kg",
   weeklyProgress = -0.8
 }) => {
   // Calcular progreso hacia el objetivo
-  const progressPercentage = Math.max(0, Math.min(100, 
+  const progressPercentage = Math.max(0, Math.min(100,
     ((currentWeight - targetWeight) / (currentWeight - targetWeight + 10)) * 100
   ));
 
@@ -52,21 +50,21 @@ const Header = ({
     <View style={[styles.header, style]}>
       <View style={styles.leftSection}>
         {showBackButton && (
-          <TouchableOpacity 
-            style={styles.backButton} 
+          <TouchableOpacity
+            style={styles.backButton}
             onPress={onBackPress}
           >
             <Icon name="arrow-back" size={24} color="#2a8c4a" />
           </TouchableOpacity>
         )}
       </View>
-      
+
       <View style={styles.mainContent}>
         {/* Saludo personalizado */}
         <Text style={styles.greeting}>
           {getGreeting()}
         </Text>
-        
+
         {/* Información de peso */}
         {/* <View style={styles.weightContainer}>
           <View style={styles.weightCard}>
@@ -122,7 +120,7 @@ const Header = ({
           </Text>
         </View> */}
       </View>
-      
+
       <View style={styles.rightSection}>
         {rightComponent}
       </View>

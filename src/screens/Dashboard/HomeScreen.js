@@ -28,26 +28,26 @@ const HomeScreen = ({ navigation }) => {
   const userId = user?.uid;
   // Cargar recordatorios de hoy
   const loadTodayReminders = async () => {
-  try {
-    setLoading(true);
-    const response = await recordatoriosService.obtenerDeHoy(userId);
+    try {
+      setLoading(true);
+      const response = await recordatoriosService.obtenerDeHoy(userId);
 
-    // Verificar la estructura de respuesta
-    if (response.exito) {
-      setTodayReminders(response.datos || []);
-      // console.log(`Recordatorios cargados: ${response.datos?.length || 0}`);
-    } else {
-      // console.log('Servicio respondió con error:', response.error);
+      // Verificar la estructura de respuesta
+      if (response.exito) {
+        setTodayReminders(response.datos || []);
+        // console.log(`Recordatorios cargados: ${response.datos?.length || 0}`);
+      } else {
+        // console.log('Servicio respondió con error:', response.error);
+        setTodayReminders([]);
+      }
+    } catch (error) {
+      // console.error('Error cargando recordatorios:', error);
       setTodayReminders([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-  } catch (error) {
-    // console.error('Error cargando recordatorios:', error);
-    setTodayReminders([]);
-  } finally {
-    setLoading(false);
-    setRefreshing(false);
-  }
-};
+  };
 
   // Marcar recordatorio como tomado
   const handleMarkAsTaken = async (reminderId) => {
@@ -154,7 +154,11 @@ const HomeScreen = ({ navigation }) => {
       }
     >
       <Decorations />
-      <Header />
+      <Header
+        userName={user?.nombre && user?.apellido ? `${user.nombre} ${user.apellido}` : 'Amig@'}
+        showBackButton={true}
+        onBackPress={() => navigation.goBack()}
+      />
 
       {/* Recordatorios de Hoy - Versión Compacta */}
       <View style={{ ...styles.section, marginTop: 10 }}>
