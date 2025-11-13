@@ -102,9 +102,6 @@ function MainTabs({ initialRouteName }) {
       <Tab.Screen name="Home" component={HomeScreen}
         options={{ tabBarLabel: 'Inicio', tabBarIcon: ({ color, size }) => (<MaterialIcons name="home" color={color} size={size} />), }}
       />
-      <Tab.Screen name="Planes de Comida" component={PlanesDeComidaScreen}
-        options={{ tabBarLabel: 'Planes de Comida', tabBarIcon: ({ color, size }) => (<MaterialIcons name="restaurant-menu" color={color} size={size} />), }}
-      />
 
       <Tab.Screen
         name="ActividadFisica" 

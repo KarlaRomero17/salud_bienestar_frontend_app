@@ -16,6 +16,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import Layout from '../../components/Layout';
 import { recordatoriosService } from '../../services/recordatoriosService';
 import { AuthContext } from '../../context/AuthContext';
+import * as notificationService from '../../services/notificationService';
 
 const RemindersScreen = () => {
   const { user } = useContext(AuthContext);
@@ -53,16 +54,25 @@ const RemindersScreen = () => {
       
       const resultadoTodos = await recordatoriosService.obtenerTodos();
       if (resultadoTodos.exito) {
-        setReminders(resultadoTodos.datos);
+        // 🔒 FILTRAR: Solo mostrar recordatorios del usuario en sesión
+        const recordatoriosDelUsuario = resultadoTodos.datos.filter(
+          reminder => reminder.userId === user.uid
+        );
+        setReminders(recordatoriosDelUsuario);
+        console.log(`📋 Cargados ${recordatoriosDelUsuario.length} recordatorios del usuario ${user.uid}`);
       }
 
       const resultadoHoy = await recordatoriosService.obtenerDeHoy();
       if (resultadoHoy.exito) {
-        setTodayReminders(resultadoHoy.datos);
+        // 🔒 FILTRAR: Solo recordatorios del usuario en sesión
+        const recordatoriosHoyDelUsuario = resultadoHoy.datos.filter(
+          reminder => reminder.userId === user.uid
+        );
+        setTodayReminders(recordatoriosHoyDelUsuario);
       } else {
         const hoy = getToday();
         const recordatoriosHoy = resultadoTodos.datos.filter(reminder => 
-          reminder.active && reminder.days.includes(hoy)
+          reminder.userId === user.uid && reminder.active && reminder.days.includes(hoy)
         );
         setTodayReminders(recordatoriosHoy);
       }
@@ -154,6 +164,19 @@ const RemindersScreen = () => {
           setTodayReminders(resultadoHoy.datos);
         }
         
+        // 🔔 NUEVO: Programar notificaciones para el recordatorio
+        if (resultado.datos.active) {
+          await notificationService.scheduleReminderNotifications({
+            _id: resultado.datos._id,
+            name: resultado.datos.name,
+            dosage: resultado.datos.dosage,
+            time: resultado.datos.time,
+            days: resultado.datos.days,
+            active: resultado.datos.active,
+          });
+          console.log('✅ Notificaciones programadas para:', resultado.datos.name);
+        }
+        
         closeModals();
         Alert.alert('Éxito', 'Recordatorio creado correctamente');
       }
@@ -195,6 +218,17 @@ const RemindersScreen = () => {
           setTodayReminders(resultadoHoy.datos);
         }
         
+        // 🔔 NUEVO: Actualizar notificaciones (cancelar viejas y crear nuevas)
+        await notificationService.updateReminderNotifications({
+          _id: resultado.datos._id,
+          name: resultado.datos.name,
+          dosage: resultado.datos.dosage,
+          time: resultado.datos.time,
+          days: resultado.datos.days,
+          active: resultado.datos.active,
+        });
+        console.log('✅ Notificaciones actualizadas para:', resultado.datos.name);
+        
         closeModals();
         Alert.alert('Éxito', 'Recordatorio actualizado correctamente');
       }
@@ -217,6 +251,17 @@ const RemindersScreen = () => {
         if (resultadoHoy.exito) {
           setTodayReminders(resultadoHoy.datos);
         }
+        
+        // 🔔 NUEVO: Actualizar notificaciones según el nuevo estado
+        await notificationService.updateReminderNotifications({
+          _id: resultado.datos._id,
+          name: resultado.datos.name,
+          dosage: resultado.datos.dosage,
+          time: resultado.datos.time,
+          days: resultado.datos.days,
+          active: resultado.datos.active,
+        });
+        console.log(`✅ Notificaciones ${resultado.datos.active ? 'activadas' : 'desactivadas'} para:`, resultado.datos.name);
       }
     } catch (error) {
       console.error('Error cambiando estado:', error);
@@ -235,6 +280,10 @@ const RemindersScreen = () => {
           style: 'destructive',
           onPress: async () => {
             try {
+              // 🔔 NUEVO: Cancelar notificaciones antes de eliminar
+              await notificationService.cancelReminderNotifications(id);
+              console.log('✅ Notificaciones canceladas para:', name);
+              
               const resultado = await recordatoriosService.eliminar(id);
               if (resultado.exito) {
                 setReminders(prev => prev.filter(reminder => reminder._id !== id));
