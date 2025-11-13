@@ -11,6 +11,7 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  ScrollView
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Layout from '../../components/Layout';
@@ -28,7 +29,7 @@ const RemindersScreen = () => {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingReminder, setEditingReminder] = useState(null);
-  
+
   const [newReminder, setNewReminder] = useState({
     nombre: '',
     dosis: '',
@@ -51,7 +52,7 @@ const RemindersScreen = () => {
 
     try {
       setLoading(true);
-      
+
       // 🔒 SEGURIDAD: Pasar userId para que el backend filtre
       const resultadoTodos = await recordatoriosService.obtenerTodos(user.uid);
       if (resultadoTodos.exito) {
@@ -73,14 +74,14 @@ const RemindersScreen = () => {
         setTodayReminders(recordatoriosHoyDelUsuario);
       } else {
         const hoy = getToday();
-        const recordatoriosHoy = resultadoTodos.datos.filter(reminder => 
+        const recordatoriosHoy = resultadoTodos.datos.filter(reminder =>
           reminder.userId === user.uid && reminder.active && reminder.days.includes(hoy)
         );
         setTodayReminders(recordatoriosHoy);
       }
     } catch (error) {
       console.error('Error cargando recordatorios:', error);
-      Alert.alert('Error', 'No se pudieron cargar los recordatorios');
+      Alert.alert('Error', 'No se pudieron cargar los recordatorios 2 ');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -158,14 +159,14 @@ const RemindersScreen = () => {
     try {
       setSaving(true);
       const resultado = await recordatoriosService.crear(newReminder);
-      
+
       if (resultado.exito) {
         setReminders(prev => [...prev, resultado.datos]);
         const resultadoHoy = await recordatoriosService.obtenerDeHoy(user.uid);
         if (resultadoHoy.exito) {
           setTodayReminders(resultadoHoy.datos);
         }
-        
+
         // 🔔 NUEVO: Programar notificaciones para el recordatorio
         if (resultado.datos.active) {
           await notificationService.scheduleReminderNotifications({
@@ -178,7 +179,7 @@ const RemindersScreen = () => {
           });
           console.log('✅ Notificaciones programadas para:', resultado.datos.name);
         }
-        
+
         closeModals();
         Alert.alert('Éxito', 'Recordatorio creado correctamente');
       }
@@ -207,19 +208,19 @@ const RemindersScreen = () => {
       };
 
       const resultado = await recordatoriosService.actualizar(editingReminder._id, datosActualizacion);
-      
+
       if (resultado.exito) {
-        setReminders(prev => 
-          prev.map(reminder => 
+        setReminders(prev =>
+          prev.map(reminder =>
             reminder._id === editingReminder._id ? resultado.datos : reminder
           )
         );
-        
+
         const resultadoHoy = await recordatoriosService.obtenerDeHoy(user.uid);
         if (resultadoHoy.exito) {
           setTodayReminders(resultadoHoy.datos);
         }
-        
+
         // 🔔 NUEVO: Actualizar notificaciones (cancelar viejas y crear nuevas)
         await notificationService.updateReminderNotifications({
           _id: resultado.datos._id,
@@ -230,7 +231,7 @@ const RemindersScreen = () => {
           active: resultado.datos.active,
         });
         console.log('✅ Notificaciones actualizadas para:', resultado.datos.name);
-        
+
         closeModals();
         Alert.alert('Éxito', 'Recordatorio actualizado correctamente');
       }
@@ -246,14 +247,14 @@ const RemindersScreen = () => {
     try {
       const resultado = await recordatoriosService.alternarEstado(id);
       if (resultado.exito) {
-        setReminders(prev => 
+        setReminders(prev =>
           prev.map(reminder => reminder._id === id ? resultado.datos : reminder)
         );
         const resultadoHoy = await recordatoriosService.obtenerDeHoy(user.uid);
         if (resultadoHoy.exito) {
           setTodayReminders(resultadoHoy.datos);
         }
-        
+
         // 🔔 NUEVO: Actualizar notificaciones según el nuevo estado
         await notificationService.updateReminderNotifications({
           _id: resultado.datos._id,
@@ -285,7 +286,7 @@ const RemindersScreen = () => {
               // 🔔 NUEVO: Cancelar notificaciones antes de eliminar
               await notificationService.cancelReminderNotifications(id);
               console.log('✅ Notificaciones canceladas para:', name);
-              
+
               const resultado = await recordatoriosService.eliminar(id);
               if (resultado.exito) {
                 setReminders(prev => prev.filter(reminder => reminder._id !== id));
@@ -314,7 +315,7 @@ const RemindersScreen = () => {
             try {
               const resultado = await recordatoriosService.marcarTomado(id);
               if (resultado.exito) {
-                setReminders(prev => 
+                setReminders(prev =>
                   prev.map(reminder => reminder._id === id ? resultado.datos : reminder)
                 );
                 const resultadoHoy = await recordatoriosService.obtenerDeHoy(user.uid);
@@ -371,7 +372,7 @@ const RemindersScreen = () => {
           <Text style={styles.timeText}>{item.time}</Text>
         </View>
       </View>
-      
+
       <View style={styles.reminderActions}>
         <View style={styles.statusContainer}>
           <View style={styles.switchContainer}>
@@ -386,21 +387,21 @@ const RemindersScreen = () => {
             />
           </View>
         </View>
-        
+
         <View style={styles.actionButtons}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.actionButton, styles.editButton]}
             onPress={() => openEditModal(item)}>
             <Icon name="edit" size={18} color="#FFFFFF" />
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[styles.actionButton, styles.takenButton]}
             onPress={() => markAsTaken(item._id, item.name)}>
             <Icon name="check-circle" size={18} color="#FFFFFF" />
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[styles.actionButton, styles.deleteButton]}
             onPress={() => deleteReminder(item._id, item.name)}>
             <Icon name="delete-outline" size={18} color="#FFFFFF" />
@@ -422,7 +423,7 @@ const RemindersScreen = () => {
         </View>
         <View style={styles.todayActions}>
           <Text style={styles.todayReminderTime}>{item.time}</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.todayActionButton}
             onPress={() => markAsTaken(item._id, item.name)}>
             <Icon name="check" size={16} color="#FFFFFF" />
@@ -451,19 +452,20 @@ const RemindersScreen = () => {
 
   return (
     <Layout title="Mis Recordatorios">
-      {/* Header con estadísticas */}
-      <View style={styles.headerStats}>
-        <View style={styles.statItem}>
-          <Icon name="today" size={24} color="#2a8c4a" />
-          <Text style={styles.statNumber}>{todayReminders.length}</Text>
-          <Text style={styles.statLabel}>Para hoy</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Icon name="list-alt" size={24} color="#2a8c4a" />
-          <Text style={styles.statNumber}>{reminders.length}</Text>
-          <Text style={styles.statLabel}>Total</Text>
-        </View>
-      </View>
+{/* Header con estadísticas */}
+<View style={styles.headerStats}>
+  <View style={styles.statPill}>
+    <Icon name="today" size={14} color="#2a8c4a" />
+    <Text style={styles.statPillNumber}>{todayReminders.length}</Text>
+    <Text style={styles.statPillLabel}>Hoy</Text>
+  </View>
+
+  <View style={styles.statPill}>
+    <Icon name="list-alt" size={14} color="#2a8c4a" />
+    <Text style={styles.statPillNumber}>{reminders.length}</Text>
+    <Text style={styles.statPillLabel}>Total</Text>
+  </View>
+</View>
 
       {/* Recordatorios de hoy */}
       <View style={styles.todaySection}>
@@ -471,15 +473,22 @@ const RemindersScreen = () => {
           <Icon name="schedule" size={20} color="#2a8c4a" />
           <Text style={styles.sectionTitle}>Recordatorios de Hoy</Text>
         </View>
-        {todayReminders.length > 0 ? (
-          todayReminders.map(renderTodayReminder)
-        ) : (
-          <View style={styles.emptyToday}>
-            <Icon name="event-available" size={40} color="#d0fdd7" />
-            <Text style={styles.noRemindersText}>No hay recordatorios para hoy</Text>
-            <Text style={styles.noRemindersSubtext}>¡Descansa o agrega nuevos recordatorios!</Text>
-          </View>
-        )}
+
+        <ScrollView
+          style={styles.todayScrollView}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled={true}
+        >
+          {todayReminders.length > 0 ? (
+            todayReminders.map(renderTodayReminder)
+          ) : (
+            <View style={styles.emptyToday}>
+              <Icon name="event-available" size={40} color="#d0fdd7" />
+              <Text style={styles.noRemindersText}>No hay recordatorios para hoy</Text>
+              <Text style={styles.noRemindersSubtext}>¡Descansa o agrega nuevos recordatorios!</Text>
+            </View>
+          )}
+        </ScrollView>
       </View>
 
       {/* Todos los recordatorios */}
@@ -522,7 +531,7 @@ const RemindersScreen = () => {
       </TouchableOpacity>
 
       {/* Botón de debug para verificar notificaciones */}
-      <TouchableOpacity
+      {/* <TouchableOpacity
         style={styles.debugButton}
         onPress={async () => {
           const info = await notificationService.debugNotifications();
@@ -534,7 +543,7 @@ const RemindersScreen = () => {
           );
         }}>
         <Icon name="bug-report" size={24} color="#FFFFFF" />
-      </TouchableOpacity>
+      </TouchableOpacity> */}
 
       {/* Modal para agregar recordatorio */}
       <Modal
@@ -546,13 +555,13 @@ const RemindersScreen = () => {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Nuevo Recordatorio</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.closeButton}
                 onPress={closeModals}>
                 <Icon name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
-            
+
             <View style={styles.inputGroup}>
               <Icon name="medication" size={20} color="#2a8c4a" style={styles.inputIcon} />
               <TextInput
@@ -639,13 +648,13 @@ const RemindersScreen = () => {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Editar Recordatorio</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.closeButton}
                 onPress={closeModals}>
                 <Icon name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
-            
+
             {editingReminder && (
               <>
                 <View style={styles.inputGroup}>
@@ -757,30 +766,34 @@ const styles = StyleSheet.create({
   },
   headerStats: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    marginHorizontal: 20,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
     marginTop: 10,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    gap: 15,
   },
-  statItem: {
+  statPill: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  statNumber: {
-    fontSize: 24,
+  statPillNumber: {
+    fontSize: 14,
     fontWeight: 'bold',
     color: '#2a8c4a',
-    marginVertical: 4,
+    marginHorizontal: 6,
   },
-  statLabel: {
+  statPillLabel: {
     fontSize: 12,
     color: '#666',
+    fontWeight: '500',
   },
   todaySection: {
     backgroundColor: '#F8F9FA',
@@ -1176,6 +1189,9 @@ const styles = StyleSheet.create({
   },
   saveButtonDisabled: {
     opacity: 0.6,
+  },
+  todayScrollView: {
+    maxHeight: 200, // Altura máxima para el scroll
   },
 });
 

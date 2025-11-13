@@ -25,26 +25,29 @@ const HomeScreen = ({ navigation }) => {
   const [todayReminders, setTodayReminders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
+  const userId = user?.uid;
   // Cargar recordatorios de hoy
   const loadTodayReminders = async () => {
-    try {
-      setLoading(true);
-      const response = await recordatoriosService.obtenerDeHoy();
-      if (response.exito) {
-        setTodayReminders(response.datos || []);
-      } else {
-        setTodayReminders([]);
-      }
-    } catch (error) {
-      console.error('Error cargando recordatorios:', error);
-      Alert.alert('Error', 'No se pudieron cargar los recordatorios');
+  try {
+    setLoading(true);
+    const response = await recordatoriosService.obtenerDeHoy(userId);
+
+    // Verificar la estructura de respuesta
+    if (response.exito) {
+      setTodayReminders(response.datos || []);
+      console.log(`🎯 Recordatorios cargados: ${response.datos?.length || 0}`);
+    } else {
+      console.log('Servicio respondió con error:', response.error);
       setTodayReminders([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
     }
-  };
+  } catch (error) {
+    console.error('Error cargando recordatorios:', error);
+    setTodayReminders([]);
+  } finally {
+    setLoading(false);
+    setRefreshing(false);
+  }
+};
 
   // Marcar recordatorio como tomado
   const handleMarkAsTaken = async (reminderId) => {
@@ -131,7 +134,7 @@ const HomeScreen = ({ navigation }) => {
           <Text style={styles.authErrorText}>
             Por favor, inicia sesión para ver tus recordatorios
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.loginButton}
             onPress={() => navigation.navigate('Login')}
           >
@@ -175,7 +178,7 @@ const HomeScreen = ({ navigation }) => {
               const reminderColor = getReminderColor(reminder);
               const reminderIcon = getReminderIcon(reminder);
               const isPending = !reminder.tomado;
-              
+
               return (
                 <TouchableOpacity
                   key={reminder._id || index}
@@ -202,7 +205,7 @@ const HomeScreen = ({ navigation }) => {
                         </Text>
                       </View>
                     </View>
-                    
+
                     {isPending ? (
                       <TouchableOpacity
                         style={[styles.actionButton, { backgroundColor: reminderColor }]}
@@ -219,7 +222,7 @@ const HomeScreen = ({ navigation }) => {
                 </TouchableOpacity>
               );
             })}
-            
+
             {todayReminders.length > 2 && (
               <TouchableOpacity
                 style={styles.moreButton}

@@ -61,35 +61,41 @@ export const recordatoriosService = {
 
   // Obtener recordatorios de hoy del usuario
   obtenerDeHoy: async (userId) => {
-    try {
-      if (!userId) {
-        throw new Error('userId es requerido para obtener recordatorios');
-      }
+  try {
+    if (!userId) {
+      return { exito: false, error: 'No userId', datos: [] };
+    }
 
-      const url = `${SERVER_URI}/api/recordatorios/usuario/${userId}`;
-      console.log('📋 Recordatorios de hoy | Conectando a:', url);
-      
-      const response = await fetchWithTimeout(url);
-      if (!response.ok) throw new Error(`Error ${response.status}`);
-      
-      const data = await response.json();
-      
-      // Filtrar solo los de hoy en el frontend
-      const hoy = new Date().toISOString().split('T')[0];
-      const deHoy = data.filter(recordatorio => {
-        // Asumiendo que tienes un campo de fecha o días activos
-        // Ajusta esta lógica según tu estructura de datos
-        return recordatorio.activo === true;
+    const url = `${SERVER_URI}/api/recordatorios/usuario/${userId}`;
+    console.log('📋 Recordatorios de hoy | Conectando a:', url);
+    
+    const response = await fetchWithTimeout(url);
+    
+    if (!response.ok) {
+      return { exito: false, error: `Error ${response.status}`, datos: [] };
+    }
+    
+    const result = await response.json();
+    console.log('📦 Resultado completo:', result);
+    
+    // El backend ya devuelve {exito, datos}
+    if (result.exito && Array.isArray(result.datos)) {
+      // Filtrar solo los activos
+      const deHoy = result.datos.filter(recordatorio => {
+        return recordatorio && recordatorio.active === true;
       });
       
       console.log(`✅ Recordatorios de hoy: ${deHoy.length}`);
-      return deHoy;
-      
-    } catch (error) {
-      console.error('❌ Error en obtenerDeHoy:', error);
-      throw error;
+      return { exito: true, datos: deHoy };
+    } else {
+      return { exito: false, error: 'Respuesta inválida del servidor', datos: [] };
     }
-  },
+    
+  } catch (error) {
+    console.error('Error en obtenerDeHoy:', error);
+    return { exito: false, error: error.message, datos: [] };
+  }
+},
 
   crear: async (datos) => {
     try {
