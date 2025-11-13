@@ -33,39 +33,60 @@ const fetchWithTimeout = async (url, options = {}, timeout = 10000) => {
 };
 
 export const recordatoriosService = {
-  // Obtener todos los recordatorios
-  obtenerTodosConPaginacion: async (queryParams = '') => {
+  // ✨ Obtener todos los recordatorios del usuario usando el nuevo endpoint
+  obtenerTodos: async (userId) => {
     try {
-      console.log('Recordatorios | Conectando aaa:', `${SERVER_URI}/api/recordatorios?${queryParams}`);
+      if (!userId) {
+        throw new Error('userId es requerido para obtener recordatorios');
+      }
+
+      const url = `${SERVER_URI}/api/recordatorios/usuario/${userId}`;
+      console.log('📋 Recordatorios | Conectando a:', url);
       
-      const response = await fetchWithTimeout(`${SERVER_URI}/api/recordatorios?${queryParams}`);
+      const response = await fetchWithTimeout(url);
       
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
       
       const data = await response.json();
-      console.log('Datos recibidos correctamente');
+      console.log(`✅ Datos recibidos: ${data.length || 0} recordatorios del usuario`);
       return data;
       
     } catch (error) {
-      console.error('Error en obtenerTodosConPaginacion:', error.message);
+      console.error('❌ Error en obtenerTodos:', error.message);
       throw error;
     }
   },
 
-  // Mantén el método original para compatibilidad
-  obtenerTodos: async () => {
-    return await recordatoriosService.obtenerTodosConPaginacion();
-  },
-
-  obtenerDeHoy: async () => {
+  // Obtener recordatorios de hoy del usuario
+  obtenerDeHoy: async (userId) => {
     try {
-      const response = await fetchWithTimeout(`${SERVER_URI}/api/recordatorios/hoy/recordatorios`);
+      if (!userId) {
+        throw new Error('userId es requerido para obtener recordatorios');
+      }
+
+      const url = `${SERVER_URI}/api/recordatorios/usuario/${userId}`;
+      console.log('📋 Recordatorios de hoy | Conectando a:', url);
+      
+      const response = await fetchWithTimeout(url);
       if (!response.ok) throw new Error(`Error ${response.status}`);
-      return await response.json();
+      
+      const data = await response.json();
+      
+      // Filtrar solo los de hoy en el frontend
+      const hoy = new Date().toISOString().split('T')[0];
+      const deHoy = data.filter(recordatorio => {
+        // Asumiendo que tienes un campo de fecha o días activos
+        // Ajusta esta lógica según tu estructura de datos
+        return recordatorio.activo === true;
+      });
+      
+      console.log(`✅ Recordatorios de hoy: ${deHoy.length}`);
+      return deHoy;
+      
     } catch (error) {
-      console.error('Error en obtenerDeHoy:', error);
+      console.error('❌ Error en obtenerDeHoy:', error);
       throw error;
     }
   },
