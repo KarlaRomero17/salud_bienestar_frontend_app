@@ -55,7 +55,7 @@ const HealthGoalsScreen = ({ navigation }) => {
 
   const unitTypes = [
     { id: 'kg', name: 'kg' },
-    { id: 'lb', name: 'lb' },
+    // { id: 'lb', name: 'lb' },
   ];
 
   const USER_UUID = user?.uid;
