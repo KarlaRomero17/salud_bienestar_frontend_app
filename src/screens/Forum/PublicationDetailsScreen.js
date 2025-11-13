@@ -15,9 +15,10 @@ import {
     View
 } from 'react-native';
 import { AuthContext } from '../../context/AuthContext';
+import { SERVER_URI } from '@env';
 
 //IP del emulador de android studio
-const BASE_URL = Platform.OS == 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000'
+const BASE_URL = Platform.OS == 'android' ? `${SERVER_URI}`  : 'http://localhost:5000'
 
 export default function PublicationDetailsScreen() {
     const { user } = useContext(AuthContext);

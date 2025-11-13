@@ -4,9 +4,10 @@ import axios from 'axios';
 import { useCallback, useContext, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { AuthContext } from '../../context/AuthContext';
+import { SERVER_URI } from '@env';
 
 
-const BASE_URL = Platform.OS == 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000'
+const BASE_URL = Platform.OS == 'android' ? `${SERVER_URI}` : 'http://localhost:5000'
 
 const ForumScreen = () => {
   const { user } = useContext(AuthContext);
