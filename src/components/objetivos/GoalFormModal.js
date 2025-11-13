@@ -20,7 +20,7 @@ const GoalFormModal = ({
   unitTypes,
   onSave,
   onOpenDatePicker,
-  isEditing = false
+  isEditing = false,
 }) => {
   const formatDisplayDate = (dateString) => {
     if (!dateString) return '';
@@ -105,7 +105,7 @@ const GoalFormModal = ({
             </View>
           </View>
 
-          {isEditing && (
+          {/* {isEditing && (
             <>
               <Text style={styles.inputLabel}>Peso inicial</Text>
               <TextInput
@@ -116,7 +116,7 @@ const GoalFormModal = ({
                 onChangeText={text => onChange('initialWeight', text)}
               />
             </>
-          )}
+          )} */}
 
           <Text style={styles.inputLabel}>Fecha objetivo</Text>
           <TouchableOpacity

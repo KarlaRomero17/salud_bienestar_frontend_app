@@ -96,11 +96,11 @@ const HealthGoalsScreen = ({ navigation }) => {
       //console.log('Intentando obtener perfil del usuario con UUID:', USER_UUID);
 
       const userResult = await userService.obtenerPerfil(USER_UUID);
-      //console.log('Perfil obtenido:', userResult);
+      console.log('Perfil obtenido:', userResult);
 
       if (userResult.exito) {
         setCurrentUser(userResult.datos);
-        //console.log('Peso actual del usuario:', userResult.datos.peso_actual);
+        console.log('Peso actual del usuario:', userResult.datos.peso_actual);
 
         // Cargar historial de peso
         await loadWeightHistoryData();
@@ -149,8 +149,9 @@ const HealthGoalsScreen = ({ navigation }) => {
 
   // Efecto para recalcular progresos cuando cambia el peso actual
   useEffect(() => {
+    // console.log('Peso actuaaaaaaaal:', currentUser.peso_actual);
     if (currentUser?.peso_actual && goals.length > 0) {
-      console.log('Recalculando progresos por cambio de peso...');
+      // console.log('Recalculando progresos por cambio de peso...');
       const updatedGoals = goals.map(goal => ({
         ...goal,
         progress: calculateProgress(goal, currentUser.peso_actual)
@@ -169,40 +170,66 @@ const HealthGoalsScreen = ({ navigation }) => {
   };
 
   // Crear nuevo objetivo
-  const addGoal = async () => {
-    if (!newGoal.title || !newGoal.targetWeight || !newGoal.targetDate) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
+const addGoal = async () => {
+  const missingFields = [];
+  
+  if (!newGoal.title) missingFields.push('título');
+  if (!newGoal.targetWeight) missingFields.push('peso objetivo');
+  if (!newGoal.targetDate) missingFields.push('fecha objetivo');
+  
+  if (missingFields.length > 0) {
+    Alert.alert('Error', `Por favor completa: ${missingFields.join(', ')}`);
+    return;
+  }
+
+  try {
+    const initialWeightForGoal = currentUser?.peso_actual;
+    
+    console.log('🔍 DEBUG addGoal:');
+    console.log('currentUser:', currentUser);
+    console.log('peso_actual:', currentUser?.peso_actual);
+    console.log('initialWeightForGoal:', initialWeightForGoal);
+
+    if (!initialWeightForGoal) {
+      Alert.alert('Error', 'No se pudo obtener tu peso actual. Por favor actualiza tu peso primero.');
       return;
     }
 
-    try {
-      // EL PESO INICIAL DEBE SER FIJO - usar el peso actual del usuario al crear el objetivo
-      const initialWeightForGoal = currentUser?.peso_actual;
+    const goalData = {
+      title: newGoal.title,
+      type: newGoal.type,
+      targetWeight: parseFloat(newGoal.targetWeight),
+      unit: newGoal.unit,
+      targetDate: newGoal.targetDate,
+      initialWeight: initialWeightForGoal,
+      userId: USER_UUID
+    };
 
-      const goalData = {
-        title: newGoal.title,
-        type: newGoal.type,
-        targetWeight: parseFloat(newGoal.targetWeight),
-        unit: newGoal.unit,
-        targetDate: newGoal.targetDate,
-        initialWeight: initialWeightForGoal,
-        userId: USER_UUID
-      };
+    console.log('📦 goalData que se enviará:', goalData);
 
-      console.log('Creando objetivo con peso inicial FIJO:', initialWeightForGoal);
+    const result = await objetivosService.crear(goalData);
+    console.log('✅ Respuesta del servicio:', result);
 
-      const result = await objetivosService.crear(goalData);
-
-      if (result.exito) {
-        setNewGoal({ title: '', type: 'loss', targetWeight: '', unit: 'kg', targetDate: '', initialWeight: '' });
-        setModalVisible(false);
-        fetchData();
-        Alert.alert('Éxito', 'Objetivo creado correctamente');
-      }
-    } catch (error) {
-      Alert.alert('Error', error.message);
+    if (result.exito) {
+      setNewGoal({ 
+        title: '', 
+        type: 'loss', 
+        targetWeight: '', 
+        unit: 'kg', 
+        targetDate: '', 
+        initialWeight: '' 
+      });
+      setModalVisible(false);
+      fetchData();
+      Alert.alert('Éxito', 'Objetivo creado correctamente');
+    } else {
+      // console.log('Error del servicio:', result.mensaje);
     }
-  };
+  } catch (error) {
+    // console.log('Error en addGoal:', error);
+    Alert.alert('Error', error.message);
+  }
+};
 
   // Actualizar objetivo
   const updateGoal = async () => {
@@ -361,11 +388,9 @@ const HealthGoalsScreen = ({ navigation }) => {
   // Función para recargar solo objetivos sin causar bucle
   const refreshGoalsOnly = async () => {
     try {
-      console.log('Recargando solo objetivos...');
       const goalsResult = await objetivosService.obtenerTodos(USER_UUID);
       if (goalsResult.exito) {
         setGoals(goalsResult.datos);
-        console.log('Objetivos recargados:', goalsResult.datos.length);
       }
     } catch (error) {
       console.error('Error recargando objetivos:', error);
@@ -378,17 +403,17 @@ const HealthGoalsScreen = ({ navigation }) => {
     // USAR SIEMPRE EL initialWeight DEL OBJETIVO (que es fijo)
     const initial = goal.initialWeight;
 
-    console.log('Datos del cálculo:', {
-      title: goal.title,
-      initial: initial, // ← Peso inicial fijo del objetivo
-      current: currentWeight, // ← Peso actual del historial
-      target: target, // ← Meta del objetivo
-      type: goal.type
-    });
+    // console.log('Datos del cálculo:', {
+    //   title: goal.title,
+    //   initial: initial, // ← Peso inicial fijo del objetivo
+    //   current: currentWeight, // ← Peso actual del historial
+    //   target: target, // ← Meta del objetivo
+    //   type: goal.type
+    // });
 
     // Si no hay datos suficientes, retornar 0
     if (!initial || !currentWeight || !target) {
-      console.log(`Datos insuficientes: initial=${initial}, current=${currentWeight}, target=${target}`);
+      // console.log(`Datos insuficientes: initial=${initial}, current=${currentWeight}, target=${target}`);
       return 0;
     }
 
@@ -398,7 +423,7 @@ const HealthGoalsScreen = ({ navigation }) => {
       // Pérdida de peso: progreso = (peso perdido / peso a perder) * 100
       const totalToLose = initial - target;
 
-      console.log(`"${goal.title}": Total a perder = ${initial} - ${target} = ${totalToLose}kg`);
+      // console.log(`"${goal.title}": Total a perder = ${initial} - ${target} = ${totalToLose}kg`);
 
       // Si el objetivo ya está cumplido
       if (currentWeight <= target) {
