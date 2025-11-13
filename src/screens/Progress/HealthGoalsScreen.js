@@ -66,13 +66,13 @@ const HealthGoalsScreen = ({ navigation }) => {
       setLoading(true);
       setUserLoading(true);
 
-      console.log('UUID del usuario:', USER_UUID);
+      //console.log('UUID del usuario:', USER_UUID);
 
       // Cargar objetivos DEL USUARIO ACTUAL
       const goalsResult = await objetivosService.obtenerTodos(USER_UUID);
       if (goalsResult.exito) {
         setGoals(goalsResult.datos);
-        console.log('Objetivos cargados:', goalsResult.datos.length);
+        //console.log('Objetivos cargados:', goalsResult.datos.length);
       } else {
         console.log('No se pudieron cargar objetivos:', goalsResult.mensaje);
       }
@@ -93,20 +93,20 @@ const HealthGoalsScreen = ({ navigation }) => {
   // Cargar datos del usuario
   const loadUserData = async () => {
     try {
-      console.log('Intentando obtener perfil del usuario con UUID:', USER_UUID);
+      //console.log('Intentando obtener perfil del usuario con UUID:', USER_UUID);
 
       const userResult = await userService.obtenerPerfil(USER_UUID);
-      console.log('Perfil obtenido:', userResult);
+      //console.log('Perfil obtenido:', userResult);
 
       if (userResult.exito) {
         setCurrentUser(userResult.datos);
-        console.log('Peso actual del usuario:', userResult.datos.peso_actual);
+        //console.log('Peso actual del usuario:', userResult.datos.peso_actual);
 
         // Cargar historial de peso
         await loadWeightHistoryData();
       }
     } catch (error) {
-      console.error('Error en loadUserData:', error);
+      //console.error('Error en loadUserData:', error);
       if (!error.message.includes('404') && !error.message.includes('no encontrado')) {
         Alert.alert('Error', `No se pudieron cargar los datos: ${error.message}`);
       }
@@ -115,13 +115,13 @@ const HealthGoalsScreen = ({ navigation }) => {
 
   const loadWeightHistoryData = async () => {
     try {
-      console.log('Cargando historial de peso...');
+      //console.log('Cargando historial de peso...');
       const historialResult = await userService.obtenerHistorialPeso(USER_UUID);
-      console.log('Historial obtenido:', historialResult);
+      //console.log('Historial obtenido:', historialResult);
 
       if (historialResult.exito) {
         setWeightHistory(historialResult.datos || []);
-        console.log(`${historialResult.datos?.length || 0} registros cargados`);
+        //console.log(`${historialResult.datos?.length || 0} registros cargados`);
 
         // ELIMINA ESTA PARTE que causa el bucle
         // if (historialResult.datos?.length > 0 && goals.length > 0) {

@@ -3,7 +3,7 @@ import axios from 'axios';
 import { SERVER_URI } from '@env';
 
 const API_BASE_URL = `${SERVER_URI}/api`;
-console.log('ObjetivosService | Conectando a:', API_BASE_URL);
+//console.log('ObjetivosService | Conectando a:', API_BASE_URL);
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -29,12 +29,12 @@ export const objetivosService = {
         throw new Error('Se requiere el ID del usuario');
       }
       
-      console.log('Buscando objetivos para usuario:', userId);
-      console.log('URL completa:', `${API_BASE_URL}/health-goals/${userId}`);
+      //console.log('Buscando objetivos para usuario:', userId);
+      //console.log('URL completa:', `${API_BASE_URL}/health-goals/${userId}`);
       
       // IMPORTANTE: Cambia a esta URL con el userId como parámetro de ruta
       const response = await api.get(`/health-goals/${userId}`);
-      console.log('Objetivos obtenidos exitosamente');
+      //console.log('Objetivos obtenidos exitosamente');
       return response.data;
     } catch (error) {
       console.error('Error en obtenerTodos:', error.response?.data || error.message);
