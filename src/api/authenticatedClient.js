@@ -3,13 +3,14 @@
 import axios from 'axios';
 import tokenManager from '../utils/tokenManager'; // Asegúrate de que esta ruta a tu tokenManager sea correcta
 
+import { SERVER_URI } from '@env';
 
 
 // Dirección de tu base de datos en tiempo real de Firebase
 const FIREBASE_DATABASE_URL = 'https://appsaludybienestar-b7b70-default-rtdb.firebaseio.com';
 
 // Dirección de tu backend de Node.js 
-const BACKEND_API_URL = 'http://192.168.0.9:5000/api';
+const BACKEND_API_URL = `${SERVER_URI}/api`;
 
 
 
