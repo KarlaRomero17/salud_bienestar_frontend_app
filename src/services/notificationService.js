@@ -48,6 +48,36 @@ const dayToNumber = (day) => {
 };
 
 /**
+ * Calcula la próxima fecha/hora para una notificación
+ * @param {number} targetWeekday - Día de la semana (1=Dom, 2=Lun, ..., 7=Sáb)
+ * @param {number} hour - Hora (0-23)
+ * @param {number} minute - Minuto (0-59)
+ * @returns {Date} Fecha/hora de la próxima ocurrencia
+ */
+const getNextOccurrence = (targetWeekday, hour, minute) => {
+  const now = new Date();
+  const result = new Date();
+  
+  // Configurar la hora objetivo
+  result.setHours(hour, minute, 0, 0);
+  
+  // Obtener el día actual (0=Domingo, 1=Lunes, ..., 6=Sábado)
+  const currentWeekday = now.getDay() + 1; // Convertir a formato expo (1=Dom)
+  
+  // Calcular días hasta el día objetivo
+  let daysToAdd = targetWeekday - currentWeekday;
+  
+  // Si el día ya pasó esta semana O es hoy pero la hora ya pasó
+  if (daysToAdd < 0 || (daysToAdd === 0 && now > result)) {
+    daysToAdd += 7; // Programar para la próxima semana
+  }
+  
+  result.setDate(result.getDate() + daysToAdd);
+  
+  return result;
+};
+
+/**
  * Programa notificaciones para un recordatorio específico
  * @param {Object} reminder - Objeto con datos del recordatorio
  * @param {string} reminder._id - ID del recordatorio
@@ -68,11 +98,27 @@ export const scheduleReminderNotifications = async (reminder) => {
     const { hour, minute } = parseTime(reminder.time);
     const notificationIds = [];
 
+    const now = new Date();
     console.log(`📅 Programando notificaciones para "${reminder.name}" a las ${hour}:${minute < 10 ? '0' + minute : minute}`);
+    console.log(`📍 Hora actual: ${now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`);
 
     // Programar una notificación para cada día configurado
     for (const day of reminder.days) {
       const weekday = dayToNumber(day);
+      
+      // Calcular la próxima ocurrencia de este día y hora
+      const nextOccurrence = getNextOccurrence(weekday, hour, minute);
+      
+      // Calcular segundos hasta la próxima ocurrencia
+      const secondsUntilTrigger = Math.floor((nextOccurrence.getTime() - now.getTime()) / 1000);
+      
+      console.log(`   ${day} → ${nextOccurrence.toLocaleString('es-ES', { 
+        weekday: 'short', 
+        day: 'numeric', 
+        month: 'short',
+        hour: '2-digit', 
+        minute: '2-digit' 
+      })} (en ${Math.floor(secondsUntilTrigger / 60)} min)`);
 
       const notificationId = await Notifications.scheduleNotificationAsync({
         content: {
@@ -83,23 +129,25 @@ export const scheduleReminderNotifications = async (reminder) => {
           data: {
             reminderId: reminder._id,
             type: 'medication',
+            day: day,
           },
         },
         trigger: {
-          hour,
-          minute,
-          weekday, // 1=Domingo, 2=Lunes, ..., 7=Sábado (expo-notifications)
-          repeats: true, // Repetir semanalmente
+          // Usar trigger calendar con repeats para que se repita semanalmente
+          weekday: weekday,
+          hour: hour,
+          minute: minute,
+          repeats: true,
         },
       });
 
       notificationIds.push(notificationId);
-      console.log(`✅ ${day} (weekday=${weekday}) → Notificación ID: ${notificationId}`);
+      console.log(`   ✅ ID: ${notificationId}`);
     }
 
     // Guardar los IDs de notificación asociados al recordatorio
     await saveNotificationIds(reminder._id, notificationIds);
-    console.log(`💾 ${notificationIds.length} notificaciones guardadas para recordatorio ${reminder._id}`);
+    console.log(`💾 Total: ${notificationIds.length} notificaciones programadas`);
 
     return notificationIds;
   } catch (error) {
@@ -231,11 +279,59 @@ export const cancelAllNotifications = async () => {
 export const getAllScheduledNotifications = async () => {
   try {
     const notifications = await Notifications.getAllScheduledNotificationsAsync();
-    console.log('Notificaciones programadas:', notifications);
+    console.log('📋 Notificaciones programadas:', notifications.length);
+    
+    notifications.forEach((notif, index) => {
+      const trigger = notif.trigger;
+      console.log(`  ${index + 1}. ID: ${notif.identifier}`);
+      console.log(`     Título: ${notif.content.title}`);
+      console.log(`     Trigger:`, trigger);
+      
+      if (trigger.type === 'calendar') {
+        const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+        const dayName = trigger.weekday ? days[trigger.weekday - 1] : 'N/A';
+        console.log(`     ⏰ ${dayName} a las ${trigger.hour}:${trigger.minute < 10 ? '0' + trigger.minute : trigger.minute}`);
+        console.log(`     🔁 Repetir: ${trigger.repeats ? 'Sí' : 'No'}`);
+      }
+    });
+    
     return notifications;
   } catch (error) {
     console.error('Error obteniendo notificaciones programadas:', error);
     return [];
+  }
+};
+
+/**
+ * Función de debug: Verifica el estado de las notificaciones
+ * @returns {Promise<Object>}
+ */
+export const debugNotifications = async () => {
+  try {
+    const permissions = await Notifications.getPermissionsAsync();
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    const stored = await AsyncStorage.getItem(NOTIFICATION_IDS_KEY);
+    
+    const debugInfo = {
+      permissions: permissions.status,
+      scheduledCount: scheduled.length,
+      storedIds: stored ? Object.keys(JSON.parse(stored)).length : 0,
+      scheduled: scheduled.map(n => ({
+        id: n.identifier,
+        trigger: n.trigger,
+        content: n.content.title,
+      })),
+    };
+    
+    console.log('🔍 DEBUG NOTIFICACIONES:');
+    console.log('  Permisos:', debugInfo.permissions);
+    console.log('  Programadas:', debugInfo.scheduledCount);
+    console.log('  IDs guardados:', debugInfo.storedIds);
+    
+    return debugInfo;
+  } catch (error) {
+    console.error('Error en debug:', error);
+    return null;
   }
 };
 
@@ -246,4 +342,5 @@ export default {
   updateReminderNotifications,
   cancelAllNotifications,
   getAllScheduledNotifications,
+  debugNotifications,
 };

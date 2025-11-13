@@ -52,9 +52,10 @@ const RemindersScreen = () => {
     try {
       setLoading(true);
       
-      const resultadoTodos = await recordatoriosService.obtenerTodos();
+      // 🔒 SEGURIDAD: Pasar userId para que el backend filtre
+      const resultadoTodos = await recordatoriosService.obtenerTodos(user.uid);
       if (resultadoTodos.exito) {
-        // 🔒 FILTRAR: Solo mostrar recordatorios del usuario en sesión
+        // Doble verificación en frontend (por si el backend no filtra)
         const recordatoriosDelUsuario = resultadoTodos.datos.filter(
           reminder => reminder.userId === user.uid
         );
@@ -62,9 +63,10 @@ const RemindersScreen = () => {
         console.log(`📋 Cargados ${recordatoriosDelUsuario.length} recordatorios del usuario ${user.uid}`);
       }
 
-      const resultadoHoy = await recordatoriosService.obtenerDeHoy();
+      // 🔒 SEGURIDAD: Pasar userId para recordatorios de hoy
+      const resultadoHoy = await recordatoriosService.obtenerDeHoy(user.uid);
       if (resultadoHoy.exito) {
-        // 🔒 FILTRAR: Solo recordatorios del usuario en sesión
+        // Doble verificación en frontend
         const recordatoriosHoyDelUsuario = resultadoHoy.datos.filter(
           reminder => reminder.userId === user.uid
         );
@@ -159,7 +161,7 @@ const RemindersScreen = () => {
       
       if (resultado.exito) {
         setReminders(prev => [...prev, resultado.datos]);
-        const resultadoHoy = await recordatoriosService.obtenerDeHoy();
+        const resultadoHoy = await recordatoriosService.obtenerDeHoy(user.uid);
         if (resultadoHoy.exito) {
           setTodayReminders(resultadoHoy.datos);
         }
@@ -213,7 +215,7 @@ const RemindersScreen = () => {
           )
         );
         
-        const resultadoHoy = await recordatoriosService.obtenerDeHoy();
+        const resultadoHoy = await recordatoriosService.obtenerDeHoy(user.uid);
         if (resultadoHoy.exito) {
           setTodayReminders(resultadoHoy.datos);
         }
@@ -247,7 +249,7 @@ const RemindersScreen = () => {
         setReminders(prev => 
           prev.map(reminder => reminder._id === id ? resultado.datos : reminder)
         );
-        const resultadoHoy = await recordatoriosService.obtenerDeHoy();
+        const resultadoHoy = await recordatoriosService.obtenerDeHoy(user.uid);
         if (resultadoHoy.exito) {
           setTodayReminders(resultadoHoy.datos);
         }
@@ -315,7 +317,7 @@ const RemindersScreen = () => {
                 setReminders(prev => 
                   prev.map(reminder => reminder._id === id ? resultado.datos : reminder)
                 );
-                const resultadoHoy = await recordatoriosService.obtenerDeHoy();
+                const resultadoHoy = await recordatoriosService.obtenerDeHoy(user.uid);
                 if (resultadoHoy.exito) {
                   setTodayReminders(resultadoHoy.datos);
                 }
@@ -517,6 +519,21 @@ const RemindersScreen = () => {
         style={styles.addButton}
         onPress={() => setModalVisible(true)}>
         <Icon name="add" size={28} color="#FFFFFF" />
+      </TouchableOpacity>
+
+      {/* Botón de debug para verificar notificaciones */}
+      <TouchableOpacity
+        style={styles.debugButton}
+        onPress={async () => {
+          const info = await notificationService.debugNotifications();
+          await notificationService.getAllScheduledNotifications();
+          Alert.alert(
+            '🔍 Debug Notificaciones',
+            `Permisos: ${info.permissions}\nProgramadas: ${info.scheduledCount}\nAlmacenadas: ${info.storedCount}\n\nRevisa la consola para detalles`,
+            [{ text: 'OK' }]
+          );
+        }}>
+        <Icon name="bug-report" size={24} color="#FFFFFF" />
       </TouchableOpacity>
 
       {/* Modal para agregar recordatorio */}
@@ -1019,6 +1036,22 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     backgroundColor: '#64c27b',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  debugButton: {
+    position: 'absolute',
+    right: 20,
+    bottom: 90,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#ff9800',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
