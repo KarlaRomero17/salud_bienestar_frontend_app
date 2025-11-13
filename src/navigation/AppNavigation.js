@@ -107,8 +107,10 @@ function MainTabs({ initialRouteName }) {
         name="ActividadFisica" 
         component={ActividadFisicaStack} // Usamos el Stack para la navegación interna
         options={{
-          headerShown: false, // El header lo manejará el Stack interno
+          headerShown: true, // El header lo manejará el Stack interno
           tabBarLabel: 'Entrenamientos',
+          headerBackTitle: 'Atrás',
+          title: 'Actividad Física',
           tabBarIcon: ({ color, size }) => ( <MaterialIcons name="fitness-center" color={color} size={size} /> ),
         }}
       />
@@ -131,7 +133,9 @@ function MainTabs({ initialRouteName }) {
       />
       <Tab.Screen name="Configuracion" component={ConfiguracionesScreen} 
         options={{ 
-          headerShown: false,
+          headerShown: true,
+          title: 'Configuración',
+          headerBackTitle: 'Atrás',
           tabBarLabel: 'Configuración', 
           tabBarIcon: ({ color, size }) => (<MaterialIcons name="settings" color={color} size={size} />), 
         }}
