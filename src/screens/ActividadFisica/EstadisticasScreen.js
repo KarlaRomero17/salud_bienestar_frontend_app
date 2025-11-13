@@ -106,15 +106,19 @@ const EstadisticasScreen = () => {
     const [lineChartData, setLineChartData] = useState(processLineChartData(null));
 
     const handleDateChange = (event, selectedDate) => {
-        setShowPicker(false);
-        if (event.type === 'set' && selectedDate) {
-            if (pickerFor === 'inicio') {
-                setFechaInicio(selectedDate);
-            } else if (pickerFor === 'fin') {
-                setFechaFin(selectedDate);
+    setShowPicker(false);
+    if (event.type === 'set' && selectedDate) {
+        if (pickerFor === 'inicio') {
+            setFechaInicio(selectedDate);
+        } else if (pickerFor === 'fin') {
+            if (fechaInicio && selectedDate < fechaInicio) {
+                Alert.alert("Error", "La fecha final no puede ser anterior a la fecha inicial.");
+                return;
             }
+            setFechaFin(selectedDate);
         }
-    };
+    }
+};
 
     const showDatepicker = (forDate) => {
         setPickerFor(forDate);
@@ -142,13 +146,21 @@ const EstadisticasScreen = () => {
             const response = await secureApiClient.get(`${API_URL_ESTADISTICAS}/${idUsuario}`, { params });
             const data = response.data;
             
-            setEstadisticas(data);
+            const sesionesFiltradasSeguras = (data.sesionesRecientes || []).filter(sesion => {
+            const fechaSesion = new Date(sesion.fecha);
+            const cumpleFechaInicio = !fechaInicio || fechaSesion >= new Date(fechaInicio);
+            const cumpleFechaFin = !fechaFin || fechaSesion <= new Date(fechaFin);
+            return cumpleFechaInicio && cumpleFechaFin;
+        });
+
+
+            setEstadisticas({...data, sesionesRecientes: sesionesFiltradasSeguras });
             setLineChartData(processLineChartData(data)); 
             setExpandedSesionId(null);
             
         } catch (error) {
             Alert.alert("Error", "No se pudieron cargar las estadísticas.");
-            setEstadisticas(INITIAL_STATS); // Restablecer a estado seguro
+            setEstadisticas(INITIAL_STATS);
             setLineChartData(processLineChartData(null));
         } finally {
             setIsLoading(false);
@@ -200,7 +212,7 @@ const EstadisticasScreen = () => {
 
     const renderSesionItem = ({ item }) => {
         const isExpanded = item._id === expandedSesionId;
-        // La corrección anterior ya estaba aquí: usa [] si actividades es undefined o null
+       
         const actividadesArray = item.actividades || [];
         const totalSesionCalorias = actividadesArray.reduce((sum, act) => sum + (act.calorias || 0), 0).toFixed(1);
 

@@ -52,31 +52,41 @@ export default function NuevaSesionScreen({ navigation, route }) {
         }
         setIsLoading(true);
         try {
-            // Llama a GET /api/actividad/sesion/hoy/:pacienteId
+          
             const response = await secureApiClient.get(`${API_URL_SESION_HOY}/${idUsuario}`);
             const data = response.data;
             
             if (data.sesionId) {
-                // Si existe, carga los datos
+              
                 setSesionId(data.sesionId);
-                setActividades(data.actividades || []);
-                setResumenSesion(calcularResumen(data.actividades));
+                const fetchedActividades = data.actividades || [];
+                setActividades(fetchedActividades);
+                setResumenSesion(calcularResumen(fetchedActividades)); 
             } else {
-                // Si no existe, inicializa la pantalla para CREAR la sesión
+               
                 setSesionId(null);
                 setActividades([]);
                 setResumenSesion(calcularResumen([]));
             }
         } catch (error) {
-            Alert.alert("Error", "No se pudo cargar la sesión del día. Intente de nuevo.");
-            setSesionId(null);
-            setActividades([]);
+           
+            if (error.response && (error.response.status === 404 || error.response.status === 204)) {
+             
+                setSesionId(null);
+                setActividades([]);
+                setResumenSesion(calcularResumen([]));
+            } else {
+               
+                Alert.alert("Error", "No se pudo cargar la sesión del día. Intente de nuevo.");
+                setSesionId(null);
+                setActividades([]);
+            }
         } finally {
             setIsLoading(false);
         }
     }, [idUsuario]);
 
-    // Lógica para crear una sesión nueva vacía (al presionar el botón)
+   
     const handleCrearSesion = async () => {
         if (!idUsuario) {
             Alert.alert("Error", "Usuario no identificado.");
@@ -90,12 +100,15 @@ export default function NuevaSesionScreen({ navigation, route }) {
                 fecha: new Date().toISOString().split('T')[0], // YYYY-MM-DD
             };
             
-         
+            
             const response = await secureApiClient.post(API_URL_SESION, nuevaSesion);
             
             if (response.data && response.data.sesionId) {
+                
                 setSesionId(response.data.sesionId);
-                setActividades(response.data.actividades || []);
+                const createdActividades = response.data.actividades || [];
+                setActividades(createdActividades);
+                setResumenSesion(calcularResumen(createdActividades)); 
                 Alert.alert("Éxito", "Sesión creada. ¡Ahora añade tus actividades!");
             } else {
                 Alert.alert("Error", "Respuesta inválida al crear sesión.");
@@ -108,7 +121,7 @@ export default function NuevaSesionScreen({ navigation, route }) {
         }
     };
     
-    // Lógica para manejar la eliminación de una actividad
+   
     const handleEliminarActividad = async (actividadId) => {
         if (!sesionId || !actividadId) return;
 
@@ -123,10 +136,10 @@ export default function NuevaSesionScreen({ navigation, route }) {
                         const nuevasActividades = actividades.filter(act => act._id !== actividadId);
                         setIsLoading(true);
                         try {
-                            // Llama a PUT /api/actividad/sesion/replace/:idSesion con el array filtrado
+                           
                             await secureApiClient.put(`${API_URL_SESION}/replace/${sesionId}?action=replace`, { actividades: nuevasActividades });
                             
-                            // Si la llamada fue exitosa, actualiza el estado localmente
+                            
                             setActividades(nuevasActividades);
                             setResumenSesion(calcularResumen(nuevasActividades));
                             
@@ -147,6 +160,7 @@ export default function NuevaSesionScreen({ navigation, route }) {
 
     
     const handleGuardarSesion = () => {
+       
         Alert.alert(
             "Sesión Finalizada",
             "La sesión se ha guardado. Puedes consultarla en Estadísticas. ¿Volver al menú principal?",
@@ -154,12 +168,7 @@ export default function NuevaSesionScreen({ navigation, route }) {
                 {
                     text: "Aceptar",
                     onPress: () => {
-                 
-                        setSesionId(null);
-                        setActividades([]);
-                        setResumenSesion(calcularResumen([]));
-                        
-                        // Navegar al menú principal
+
                         navigation.navigate('MenuActividad'); 
                     }
                 },
@@ -167,20 +176,17 @@ export default function NuevaSesionScreen({ navigation, route }) {
         );
     };
 
-    // --- Efectos y Navegación ---
+   
     
     useFocusEffect(
+        
         useCallback(() => {
-
             fetchSesionHoy();
-            
-
-            
             return () => {};
         }, [fetchSesionHoy]) 
     );
     
-    // Función para renderizar una tarjeta de actividad (sin cambios)
+  
     const renderActividadItem = ({ item }) => {
         
         let details = '';
@@ -241,7 +247,7 @@ export default function NuevaSesionScreen({ navigation, route }) {
         );
     }
 
-    // VISTA DE EDICIÓN Y DETALLES DE SESIÓN (cuando sí hay sesion)
+
     return (
         <View style={styles.container}>
             <ScrollView contentContainerStyle={styles.contentContainer} style={{flex: 1}}>
@@ -277,7 +283,7 @@ export default function NuevaSesionScreen({ navigation, route }) {
             <View style={styles.footerButtons}>
                 <TouchableOpacity 
                     style={styles.secondaryButton}
-                    // Navega a AgregarActividad y pasa el ID de la sesión actual
+           
                     onPress={() => navigation.navigate('AgregarActividad', { sesionId })}
                 >
                     <Ionicons name="add-outline" size={24} color={COLORS.primary} />
