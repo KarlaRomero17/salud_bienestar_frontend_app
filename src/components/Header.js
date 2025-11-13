@@ -54,7 +54,7 @@ const Header = ({
             style={styles.backButton}
             onPress={onBackPress}
           >
-            <Icon name="arrow-back" size={24} color="#2a8c4a" />
+            {/* <Icon name="arrow-back" size={24} color="#2a8c4a" /> */}
           </TouchableOpacity>
         )}
       </View>

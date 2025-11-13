@@ -157,7 +157,7 @@ const HomeScreen = ({ navigation }) => {
       <Header
         userName={user?.nombre && user?.apellido ? `${user.nombre} ${user.apellido}` : 'Amig@'}
         showBackButton={true}
-        onBackPress={() => navigation.goBack()}
+        // onBackPress={() => navigation.goBack()}
       />
 
       {/* Recordatorios de Hoy - Versión Compacta */}

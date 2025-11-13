@@ -238,25 +238,34 @@ const HealthGoalsScreen = ({ navigation }) => {
   // Actualizar peso y recalcular progresos
   const handleWeightUpdate = async (pesoData) => {
     try {
-      console.log('🔄 Iniciando actualización de peso...', pesoData);
-      setCalculandoProgreso(true);
+      console.log('🔄 handleWeightUpdate iniciado');
+      console.log('📦 pesoData recibido:', pesoData);
 
-      // Preparar datos para la API
+      // Validar datos críticos
+      if (!pesoData.peso || !USER_UUID) {
+        console.error('❌ Datos faltantes:', {
+          peso: pesoData.peso,
+          USER_UUID: USER_UUID
+        });
+        throw new Error('Datos incompletos para registrar peso');
+      }
+
       const apiPesoData = {
-        peso_actual: pesoData.peso,
-        grasa_corporal: pesoData.grasa_corporal,
-        altura: pesoData.altura,
-        edad: pesoData.edad,
+        peso_actual: parseFloat(pesoData.peso),
+        grasa_corporal: parseFloat(pesoData.grasa_corporal) || null,
+        altura: parseFloat(pesoData.altura),
+        edad: parseInt(pesoData.edad),
         genero: pesoData.genero,
-        medida_cintura: pesoData.medida_cintura,
-        unidad: pesoData.unidad
+        medida_cintura: parseFloat(pesoData.medida_cintura) || null,
+        unidad: pesoData.unidad || 'kg'
       };
 
-    console.log('Datos a enviar al backend:', apiPesoData);
+      console.log('📤 Datos procesados para API:', apiPesoData);
 
       // 1. Registrar nuevo peso en el backend
+      console.log('📝 Llamando a userService.registrarPeso...');
       const result = await userService.registrarPeso(USER_UUID, apiPesoData);
-      console.log('Respuesta del backend:', result);
+      console.log('✅ Resultado de registrarPeso:', result);
 
       if (result.exito) {
         // 2. Actualizar estado local del usuario
@@ -298,11 +307,16 @@ const HealthGoalsScreen = ({ navigation }) => {
       setCalculandoProgreso(false);
     }
   };
-   const getCurrentWeight = () => {
-    if (weightHistory.length > 0) {
-      return weightHistory[0].peso; // El más reciente
+  const getCurrentWeight = () => {
+    try {
+      if (weightHistory.length > 0 && weightHistory[0].peso) {
+        return weightHistory[0].peso; // El más reciente
+      }
+      return currentUser?.peso_actual; // Fallback al perfil
+    } catch (error) {
+      console.error('Error en getCurrentWeight:', error);
+      return currentUser?.peso_actual;
     }
-    return currentUser?.peso_actual; // Fallback al perfil
   };
 
   // Recalcular progreso de todos los objetivos y marcar como completados
@@ -571,16 +585,35 @@ const HealthGoalsScreen = ({ navigation }) => {
 
       {/* Información del usuario actual */}
       <View style={styles.currentWeightInfo}>
-        <Text style={styles.currentWeightText}>
-          Peso actual: <Text style={styles.weightValue}>
-            {peso_inicial || 'No registrado'} {currentUser?.unidad_peso || 'kg'} 
-          </Text>
-        </Text>
-        {weightHistory[0]?.grasa_corporal && (
-          <Text style={styles.currentFatText}>
-            Grasa: {weightHistory[0].grasa_corporal}%
-          </Text>
-        )}
+        <View style={styles.compactWeightRow}>
+          <View style={styles.weightItem}>
+            <Text style={styles.weightLabel}>Inicial</Text>
+            <Text style={styles.weightValue}>
+              {peso_inicial || 'N/A'} <Text style={styles.unitText}>{currentUser?.unidad_peso || 'kg'}</Text>
+            </Text>
+          </View>
+
+          <View style={styles.separator} />
+
+          <View style={styles.weightItem}>
+            <Text style={styles.weightLabel}>Actual</Text>
+            <Text style={styles.weightValue}>
+              {getCurrentWeight() || 'N/A'} <Text style={styles.unitText}>{currentUser?.unidad_peso || 'kg'}</Text>
+            </Text>
+          </View>
+
+          {weightHistory[0]?.grasa_corporal && (
+            <>
+              <View style={styles.separator} />
+              <View style={styles.weightItem}>
+                <Text style={styles.weightLabel}>Grasa</Text>
+                <Text style={styles.fatValue}>
+                  {weightHistory[0].grasa_corporal}%
+                </Text>
+              </View>
+            </>
+          )}
+        </View>
       </View>
 
       {/* Resumen de objetivos */}
@@ -605,7 +638,7 @@ const HealthGoalsScreen = ({ navigation }) => {
             onEdit={editGoal}
             onDelete={deleteGoal}
             onComplete={markGoalAsCompleted}
-            currentWeight={getCurrentWeight()} 
+            currentWeight={getCurrentWeight()}
             calculateProgress={calculateProgress}
           />
         )}
@@ -827,6 +860,50 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     fontStyle: 'italic',
+  },
+ currentWeightInfo: {
+    backgroundColor: '#e8f5e9',
+    padding: 12,
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 15,
+    borderRadius: 8,
+  },
+  compactWeightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  weightItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  weightLabel: {
+    fontSize: 12,
+    color: '#2a8c4a',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  weightValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1a5c2e',
+  },
+  fatValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#e67e22',
+  },
+  separator: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#b8e6c4',
+  },
+  unitText: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 8,
+    fontWeight: '500',
   },
 });
 

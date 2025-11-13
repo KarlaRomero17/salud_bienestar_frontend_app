@@ -169,7 +169,7 @@ const UpdateWeightButton = ({ userId, onWeightUpdate, currentWeight, unit = 'kg'
                 </View>
               </View>
 
-              <Text style={styles.sectionTitle}>Medidas Adicionales (Opcional)</Text>
+              {/* <Text style={styles.sectionTitle}>Medidas Adicionales (Opcional)</Text>
               
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Circunferencia de cintura (cm)</Text>
@@ -180,7 +180,7 @@ const UpdateWeightButton = ({ userId, onWeightUpdate, currentWeight, unit = 'kg'
                   value={medidaCintura}
                   onChangeText={setMedidaCintura}
                 />
-              </View>
+              </View> */}
 
               {grasaCalculada && (
                 <View style={styles.resultPreview}>
