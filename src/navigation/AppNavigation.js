@@ -24,6 +24,7 @@ import NuevaSesionScreen from '../screens/ActividadFisica/NuevaSesionScreen';
 import AgregarActividadScreen from '../screens/ActividadFisica/AgregarActividadScreen';
 import EstadisticasScreen from '../screens/ActividadFisica/EstadisticasScreen';
 import WeightHistoryScreen from '../screens/Progress/WeightHistoryScreen';
+import PerfilScreen from '../screens/Configuraciones/PerfilScreen';
 
 
 const Stack = createNativeStackNavigator();
@@ -143,7 +144,12 @@ export default function AppNavigation() {
             <Stack.Screen
               name="WeightHistory"
               component={WeightHistoryScreen}
-              options={{headerShown: true, title: 'Historial de Peso' }}
+              options={{ headerShown: true, title: 'Historial de Peso' }}
+            />
+            <Stack.Screen
+              name="Perfil"
+              component={PerfilScreen}
+              options={{ headerShown: true,  title: 'Mi Perfil' }}
             />
           </>
         ) : (

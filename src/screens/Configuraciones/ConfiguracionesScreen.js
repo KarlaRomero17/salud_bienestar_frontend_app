@@ -15,7 +15,7 @@ import { AuthContext } from '../../context/AuthContext';
 export default function ConfiguracionesScreen() {
   const { logout, user, isNewUser, setIsNewUser } = useContext(AuthContext);
   const navigation = useNavigation();
-  
+
   // Mostrar alerta solo si es nuevo usuario
   useEffect(() => {
     if (isNewUser) {
@@ -79,95 +79,23 @@ export default function ConfiguracionesScreen() {
         </View>
 
         {/* Información del Usuario */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Mi Perfil</Text>
-          
-          {/* Nombre completo */}
-          {(user?.nombre || user?.apellido) && (
-            <View style={styles.infoCard}>
-              <MaterialIcons name="person" size={20} color="#64748b" />
-              <View style={styles.infoTextContainer}>
-                <Text style={styles.infoLabel}>Nombre</Text>
-                <Text style={styles.infoText}>
-                  {user?.nombre} {user?.apellido}
-                </Text>
-              </View>
-            </View>
-          )}
-          
-          {/* Email */}
-          <View style={styles.infoCard}>
-            <MaterialIcons name="email" size={20} color="#64748b" />
-            <View style={styles.infoTextContainer}>
-              <Text style={styles.infoLabel}>Correo</Text>
-              <Text style={styles.infoText}>{user?.email || 'No disponible'}</Text>
-            </View>
-          </View>
-          
-          {/* Edad */}
-          {user?.edad > 0 && (
-            <View style={styles.infoCard}>
-              <MaterialIcons name="cake" size={20} color="#64748b" />
-              <View style={styles.infoTextContainer}>
-                <Text style={styles.infoLabel}>Edad</Text>
-                <Text style={styles.infoText}>{user?.edad} años</Text>
-              </View>
-            </View>
-          )}
-          
-          {/* Sexo */}
-          {user?.sexo && (
-            <View style={styles.infoCard}>
-              <MaterialIcons name="wc" size={20} color="#64748b" />
-              <View style={styles.infoTextContainer}>
-                <Text style={styles.infoLabel}>Sexo</Text>
-                <Text style={styles.infoText}>{user?.sexo}</Text>
-              </View>
-            </View>
-          )}
-          
-          {/* Altura */}
-          {user?.altura > 0 && (
-            <View style={styles.infoCard}>
-              <MaterialIcons name="height" size={20} color="#64748b" />
-              <View style={styles.infoTextContainer}>
-                <Text style={styles.infoLabel}>Altura</Text>
-                <Text style={styles.infoText}>{user?.altura} m</Text>
-              </View>
-            </View>
-          )}
-          
-          {/* Peso */}
-          {user?.peso > 0 && (
-            <View style={styles.infoCard}>
-              <MaterialIcons name="monitor-weight" size={20} color="#64748b" />
-              <View style={styles.infoTextContainer}>
-                <Text style={styles.infoLabel}>Peso</Text>
-                <Text style={styles.infoText}>{user?.peso} kg</Text>
-              </View>
-            </View>
-          )}
-          
-          {/* Fecha de registro */}
-          {user?.fechaRegistro && (
-            <View style={styles.infoCard}>
-              <MaterialIcons name="event" size={20} color="#64748b" />
-              <View style={styles.infoTextContainer}>
-                <Text style={styles.infoLabel}>Miembro desde</Text>
-                <Text style={styles.infoText}>{user?.fechaRegistro}</Text>
-              </View>
-            </View>
-          )}
-        </View>
+        <TouchableOpacity
+          style={styles.optionButton}
+          onPress={() => navigation.navigate('Perfil')}
+        >
+          <MaterialIcons name="person" size={24} color="#10b981" />
+          <Text style={styles.optionText}>Mi Perfil</Text>
+          <MaterialIcons name="chevron-right" size={24} color="#64748b" />
+        </TouchableOpacity>
 
         {/* Opciones de Configuración */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Opciones</Text>
-          <TouchableOpacity style={styles.optionButton}>
+          {/* <TouchableOpacity style={styles.optionButton}>
             <MaterialIcons name="person" size={24} color="#10b981" />
             <Text style={styles.optionText}>Editar Perfil</Text>
             <MaterialIcons name="chevron-right" size={24} color="#64748b" />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           <TouchableOpacity
             style={styles.optionButton}
@@ -187,11 +115,11 @@ export default function ConfiguracionesScreen() {
             <MaterialIcons name="chevron-right" size={24} color="#64748b" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.optionButton}>
+          {/* <TouchableOpacity style={styles.optionButton}>
             <MaterialIcons name="notifications" size={24} color="#10b981" />
             <Text style={styles.optionText}>Notificaciones</Text>
             <MaterialIcons name="chevron-right" size={24} color="#64748b" />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           <TouchableOpacity style={styles.optionButton}>
             <MaterialIcons name="lock" size={24} color="#10b981" />

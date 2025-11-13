@@ -130,7 +130,7 @@ const firebaseAuth = {
 
       // 🔥 NUEVO: Registrar usuario en MongoDB (tu backend)
       try {
-        console.log('🔄 Registrando usuario en MongoDB...');
+        //console.log('🔄 Registrando usuario en MongoDB...');
 
         // Mapear datos de Firebase a formato de MongoDB
         const mongoUserData = {
@@ -151,7 +151,7 @@ const firebaseAuth = {
         const url = `${SERVER_URI}/api/usuarios/`;
         try {
           const mongoUser = await postToMongoWithRetry(url, mongoUserData, token, 3, 8000);
-          console.log('✅ Usuario registrado en MongoDB:', mongoUser);
+          //console.log('✅ Usuario registrado en MongoDB:', mongoUser);
         } catch (postErr) {
           // Mejor log con detalles para debug
           console.error('❌ Error registrando en MongoDB después de reintentos:', postErr.message || postErr);
