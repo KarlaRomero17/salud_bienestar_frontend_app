@@ -166,7 +166,7 @@ const RemindersScreen = () => {
           setTodayReminders(resultadoHoy.datos);
         }
 
-        // 🔔 NUEVO: Programar notificaciones para el recordatorio
+        // Programar notificaciones para el recordatorio
         if (resultado.datos.active) {
           await notificationService.scheduleReminderNotifications({
             _id: resultado.datos._id,
@@ -176,7 +176,7 @@ const RemindersScreen = () => {
             days: resultado.datos.days,
             active: resultado.datos.active,
           });
-          console.log('✅ Notificaciones programadas para:', resultado.datos.name);
+          console.log('Notificaciones programadas para:', resultado.datos.name);
         }
 
         closeModals();
