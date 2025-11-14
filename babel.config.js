@@ -7,9 +7,9 @@ module.exports = function(api) {
         'module:react-native-dotenv',
         {
           moduleName: '@env',
-          path: '.env', // Cambiar de .env.local a .env
+          path: '.env.local',
           safe: false,
-          allowUndefined: true, // Permitir variables no definidas
+          allowUndefined: true,
         },
       ],
     ],

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "salud_bienestar_frontend_app",
+    "name": "Salud Bienestar App",
     "slug": "salud_bienestar_frontend_app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,6 +12,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.karlaromero17.saludbienestarapp"
@@ -22,10 +25,24 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "e6bf2e50-599f-46b0-8217-c65ef8bcf11e"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e6bf2e50-599f-46b0-8217-c65ef8bcf11e"
     }
   }
 }

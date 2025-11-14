@@ -1,5 +1,8 @@
 import { SERVER_URI } from '@env';
 import tokenManager from '../utils/tokenManager';
+import { API_BASE_URL } from '../config/api';
+
+const SERVER_URI_FINAL = SERVER_URI || API_BASE_URL;
 
 // Función helper para hacer fetch con timeout Y token de autenticación
 const fetchWithTimeout = async (url, options = {}, timeout = 10000) => {
@@ -40,7 +43,7 @@ export const recordatoriosService = {
         throw new Error('userId es requerido para obtener recordatorios');
       }
 
-      const url = `${SERVER_URI}/api/recordatorios/usuario/${userId}`;
+      const url = `${SERVER_URI_FINAL}/api/recordatorios/usuario/${userId}`;
       // console.log('Recordatorios | Conectando a:', url);
       
       const response = await fetchWithTimeout(url);
@@ -66,7 +69,7 @@ export const recordatoriosService = {
       return { exito: false, error: 'No userId', datos: [] };
     }
 
-    const url = `${SERVER_URI}/api/recordatorios/usuario/${userId}`;
+    const url = `${SERVER_URI_FINAL}/api/recordatorios/usuario/${userId}`;
     // console.log('Recordatorios de hoy | Conectando a:', url);
     
     const response = await fetchWithTimeout(url);
@@ -99,7 +102,7 @@ export const recordatoriosService = {
 
   crear: async (datos) => {
     try {
-      const response = await fetchWithTimeout(`${SERVER_URI}/api/recordatorios`, {
+      const response = await fetchWithTimeout(`${SERVER_URI_FINAL}/api/recordatorios`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(datos),
@@ -114,7 +117,7 @@ export const recordatoriosService = {
 
   eliminar: async (id) => {
     try {
-      const response = await fetchWithTimeout(`${SERVER_URI}/api/recordatorios/${id}`, {
+      const response = await fetchWithTimeout(`${SERVER_URI_FINAL}/api/recordatorios/${id}`, {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error(`Error ${response.status}`);
@@ -127,7 +130,7 @@ export const recordatoriosService = {
 
   marcarTomado: async (id) => {
     try {
-      const response = await fetchWithTimeout(`${SERVER_URI}/api/recordatorios/${id}/tomado`, {
+      const response = await fetchWithTimeout(`${SERVER_URI_FINAL}/api/recordatorios/${id}/tomado`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
       });
@@ -141,7 +144,7 @@ export const recordatoriosService = {
 
   alternarEstado: async (id) => {
     try {
-      const response = await fetchWithTimeout(`${SERVER_URI}/api/recordatorios/${id}/activar-desactivar`, {
+      const response = await fetchWithTimeout(`${SERVER_URI_FINAL}/api/recordatorios/${id}/activar-desactivar`, {
         method: 'PATCH',
         headers: {'Content-Type': 'application/json'},
       });
@@ -155,7 +158,7 @@ export const recordatoriosService = {
 
   obtenerPorId: async (id) => {
     try {
-      const response = await fetchWithTimeout(`${SERVER_URI}/api/recordatorios/${id}`);
+      const response = await fetchWithTimeout(`${SERVER_URI_FINAL}/api/recordatorios/${id}`);
       if (!response.ok) throw new Error(`Error ${response.status}`);
       return await response.json();
     } catch (error) {
@@ -166,7 +169,7 @@ export const recordatoriosService = {
   //actualizar
   actualizar: async (id, datos) => {
     try {
-      const response = await fetchWithTimeout(`${SERVER_URI}/api/recordatorios/${id}`, {
+      const response = await fetchWithTimeout(`${SERVER_URI_FINAL}/api/recordatorios/${id}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(datos),

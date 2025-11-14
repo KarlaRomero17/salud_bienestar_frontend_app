@@ -1,0 +1,19 @@
+{
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "SERVER_URI": "https://salud-bienestar-backend-app.onrender.com"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "SERVER_URI": "https://salud-bienestar-backend-app.onrender.com"
+      }
+    }
+  }
+}
