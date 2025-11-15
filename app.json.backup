@@ -26,6 +26,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "e6bf2e50-599f-46b0-8217-c65ef8bcf11e"
+      }
+    },
+    "owner": "kromero"
   }
 }

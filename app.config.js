@@ -1,0 +1,38 @@
+export default {
+    expo: {
+        name: "salud_bienestar_frontend_app",
+        slug: "salud_bienestar_frontend_app",
+        version: "1.0.0",
+        orientation: "portrait",
+        icon: "./assets/icon.png",
+        userInterfaceStyle: "light",
+        newArchEnabled: true,
+        splash: {
+            image: "./assets/splash-icon.png",
+            resizeMode: "contain",
+            backgroundColor: "#ffffff"
+        },
+        ios: {
+            supportsTablet: true,
+            bundleIdentifier: "com.karlaromero17.saludbienestarapp"
+        },
+        android: {
+            package: "com.karlaromero17.saludbienestarapp",
+            adaptiveIcon: {
+                foregroundImage: "./assets/health-icon.png",
+                backgroundColor: "#ffffff"
+            },
+            edgeToEdgeEnabled: true
+        },
+        web: {
+            favicon: "./assets/favicon.png"
+        },
+        extra: {
+            SERVER_URI: process.env.SERVER_URI,
+            eas: {
+                projectId: "e6bf2e50-599f-46b0-8217-c65ef8bcf11e"
+            }
+        },
+        owner: "kromero"
+    }
+};

@@ -1,9 +1,10 @@
-import API from '../api/apiClient';
+// import API from '../api/apiClient';
+import { apiClient } from '../config/api';
 
 const authService = {
   login: async (email, password) => {
     try {
-      const response = await API.post('/auth/login', { email, password });
+      const response = await apiClient .post('/auth/login', { email, password });
       return response.data;
     } catch (error) {
       throw error;
@@ -11,7 +12,7 @@ const authService = {
   },
   register: async (userData) => {
     try {
-      const response = await API.post('/auth/register', userData);
+      const response = await apiClient .post('/auth/register', userData);
       return response.data;
     } catch (error) {
       throw error;
